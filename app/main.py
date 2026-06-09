@@ -1,13 +1,11 @@
 import sys
-from pathlib import Path
 
-from app.utils.config import Config
+from app.utils.config import load_config
 from app.utils.logger import get_logger
 
 
 def main():
-    config_path = Path(__file__).parent.parent / "config.json"
-    config = Config(str(config_path) if config_path.exists() else None)
+    config = load_config()
 
     logger = get_logger()
     logger.info(f"Starting {config.get('app', 'name')} v{config.get('app', 'version')}")
@@ -15,9 +13,12 @@ def main():
     try:
         from PyQt6.QtWidgets import QApplication
         from app.gui.main_window import MainWindow
+        from app.engine.sim_controller import SimController
 
         app = QApplication(sys.argv)
+        sim = SimController(config)
         window = MainWindow(config)
+        window.set_sim_controller(sim)
         window.show()
         sys.exit(app.exec())
     except ImportError:

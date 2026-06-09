@@ -1,66 +1,123 @@
-import json
 import os
+import json
 from pathlib import Path
+
 
 DEFAULT_CONFIG = {
     "app": {
-        "name": "Traffic Light Simulation",
+        "name": "TLS - Traffic Light Simulation",
         "version": "1.0.0",
-        "debug": False,
+        "language": "id",
+        "theme": "light",
     },
     "simulation": {
-        "default_algorithm": "fixed",
-        "cycle_time": 60,
-        "min_green": 10,
-        "max_green": 45,
-        "flow_rate": 500,
-        "vehicle_type": "car",
+        "step_length": 1.0,
+        "default_port": 8813,
+        "max_vehicles": 5000,
     },
     "sumo": {
-        "host": "127.0.0.1",
-        "port": 8813,
-        "num_retries": 5,
-        "retry_interval": 1.0,
+        "binary_path": "",
+        "netconvert_path": "",
+        "timeout": 30,
     },
-    "logging": {
-        "level": "INFO",
-        "file": "logs/tls.log",
-    },
-    "display": {
+    "gui": {
+        "viewer_fps": 30,
         "show_heatmap": False,
         "show_vehicle_labels": False,
+        "background_color": "#1a1a2e",
+    },
+    "storage": {
+        "database_path": "~/.tls/tls.db",
     },
 }
 
 
 class Config:
-    def __init__(self, path=None):
-        self.data = DEFAULT_CONFIG.copy()
-        if path:
-            self.load(path)
+    def __init__(self):
+        self._data = DEFAULT_CONFIG.copy()
+        self._load_from_file()
+        self._apply_env_overrides()
 
-    def load(self, path):
-        p = Path(path)
-        if p.exists():
-            with open(p) as f:
-                loaded = json.load(f)
-                self._merge(self.data, loaded)
+    def _get_config_dir(self) -> Path:
+        return Path.home() / ".tls"
 
-    def get(self, section, key=None, default=None):
-        section_data = self.data.get(section, {})
-        if key is None:
-            return section_data
-        return section_data.get(key, default)
+    def _get_config_path(self) -> Path:
+        return self._get_config_dir() / "config.json"
 
-    def _merge(self, base, override):
-        for k, v in override.items():
-            if k in base and isinstance(base[k], dict) and isinstance(v, dict):
-                self._merge(base[k], v)
+    def _load_from_file(self):
+        config_path = self._get_config_path()
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    user_config = json.load(f)
+                self._deep_merge(self._data, user_config)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+    def _apply_env_overrides(self):
+        env_map = {
+            "TLS_LANGUAGE": ("app", "language"),
+            "TLS_SUMO_PATH": ("sumo", "binary_path"),
+            "TLS_DB_PATH": ("storage", "database_path"),
+        }
+        for env_var, (section, key) in env_map.items():
+            value = os.environ.get(env_var)
+            if value:
+                self._data[section][key] = value
+
+    def _deep_merge(self, base, override):
+        for key, value in override.items():
+            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                self._deep_merge(base[key], value)
             else:
-                base[k] = v
+                base[key] = value
 
-    def save(self, path):
-        p = Path(path)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        with open(p, "w") as f:
-            json.dump(self.data, f, indent=2)
+    def _ensure_dirs(self):
+        self._get_config_dir().mkdir(parents=True, exist_ok=True)
+        db_path = self.get("storage", "database_path")
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+    def get(self, section, key=None):
+        if key is None:
+            return self._data.get(section, {})
+        return self._data.get(section, {}).get(key)
+
+    def set(self, section, key, value):
+        if section not in self._data:
+            self._data[section] = {}
+        self._data[section][key] = value
+        self._save()
+
+    def _save(self):
+        config_path = self._get_config_path()
+        self._get_config_dir().mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w") as f:
+            json.dump(self._data, f, indent=2)
+
+    def get_sumo_binary(self) -> str:
+        path = self.get("sumo", "binary_path")
+        if path and os.path.exists(path):
+            return path
+        for candidate in ["sumo", "/usr/bin/sumo", "/usr/local/bin/sumo"]:
+            if os.path.exists(candidate):
+                return candidate
+        return "sumo"
+
+    def get_netconvert_binary(self) -> str:
+        path = self.get("sumo", "netconvert_path")
+        if path and os.path.exists(path):
+            return path
+        for candidate in ["netconvert", "/usr/bin/netconvert"]:
+            if os.path.exists(candidate):
+                return candidate
+        return "netconvert"
+
+    def get_db_path(self) -> str:
+        path = self.get("storage", "database_path")
+        return os.path.expanduser(path)
+
+
+def load_config() -> Config:
+    config = Config()
+    config._ensure_dirs()
+    return config

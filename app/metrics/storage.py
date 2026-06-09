@@ -17,10 +17,12 @@ class MetricsStorage:
         if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(str(self.db_path))
             self._local.conn.row_factory = sqlite3.Row
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
         return self._local.conn
 
     def _init_db(self):
         conn = sqlite3.connect(str(self.db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS simulation_runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,7 +30,8 @@ class MetricsStorage:
                 end_time TEXT,
                 algorithm TEXT,
                 flow_rate INTEGER,
-                total_steps INTEGER
+                total_steps INTEGER,
+                map_name TEXT DEFAULT ''
             )
         """)
         conn.execute("""
@@ -46,21 +49,24 @@ class MetricsStorage:
         conn.commit()
         conn.close()
 
-    def create_run(self, algorithm, flow_rate):
+    def create_run(self, algorithm, flow_rate, map_name=""):
         cur = self.conn.execute(
-            "INSERT INTO simulation_runs (start_time, algorithm, flow_rate) VALUES (?, ?, ?)",
-            (datetime.now().isoformat(), algorithm, flow_rate),
+            "INSERT INTO simulation_runs (start_time, algorithm, flow_rate, map_name) VALUES (?, ?, ?, ?)",
+            (datetime.now().isoformat(), algorithm, flow_rate, map_name),
         )
         self.conn.commit()
         return cur.lastrowid
 
     def save_samples(self, run_id, samples):
+        if not samples:
+            return
+        data = [
+            (run_id, s["time"], s["speed"], s["waiting_time"], s["throughput"], s["queue_length"])
+            for s in samples
+        ]
         self.conn.executemany(
             "INSERT INTO metrics_samples (run_id, time_step, avg_speed, avg_waiting_time, throughput, queue_length) VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                (run_id, s["time"], s["speed"], s["waiting_time"], s["throughput"], s["queue_length"])
-                for s in samples
-            ],
+            data,
         )
         self.conn.commit()
 
@@ -82,6 +88,22 @@ class MetricsStorage:
             "SELECT * FROM metrics_samples WHERE run_id = ? ORDER BY time_step", (run_id,)
         )
         return [dict(row) for row in cur.fetchall()]
+
+    def delete_run(self, run_id):
+        self.conn.execute("DELETE FROM metrics_samples WHERE run_id = ?", (run_id,))
+        self.conn.execute("DELETE FROM simulation_runs WHERE id = ?", (run_id,))
+        self.conn.commit()
+
+    def export_json(self, run_id, filepath):
+        run = self.conn.execute(
+            "SELECT * FROM simulation_runs WHERE id = ?", (run_id,)
+        ).fetchone()
+        if not run:
+            raise ValueError(f"Run {run_id} not found")
+        samples = self.get_run_samples(run_id)
+        data = {"run": dict(run), "samples": samples}
+        Path(filepath).write_text(json.dumps(data, indent=2))
+        return filepath
 
     def close(self):
         if hasattr(self._local, "conn") and self._local.conn:
