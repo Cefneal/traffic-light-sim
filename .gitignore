@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.env/
+.venv/
+
+# PyInstaller
+*.spec
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*.orig
+
+# Logs
+*.log
+logs/
+
+# Database
+*.sqlite
+*.sqlite3
+
+# SUMO outputs
+*.net.xml
+*.rou.xml
+*.sumocfg
+*.add.xml
+*.tls.xml
+*.edg.xml
+*.nod.xml
+
+# Downloaded SUMO binaries
+sumo_bin/linux/
+sumo_bin/windows/
+
+# Temporary
+tmp/
+temp/
