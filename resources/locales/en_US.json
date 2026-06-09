@@ -1,0 +1,77 @@
+{
+    "app": {
+        "name": "TLS - Traffic Light Simulation",
+        "loading": "Loading...",
+        "ready": "Ready",
+        "exit": "Exit",
+        "save": "Save",
+        "cancel": "Cancel"
+    },
+    "menu": {
+        "file": "File",
+        "import_osm": "Import OSM...",
+        "export": "Export",
+        "export_csv": "Export CSV",
+        "export_json": "Export JSON",
+        "scenario": "Scenario",
+        "new_scenario": "New Scenario",
+        "open_scenario": "Open Scenario",
+        "save_scenario": "Save Scenario",
+        "settings": "Settings",
+        "exit": "Exit"
+    },
+    "controls": {
+        "play": "Play",
+        "pause": "Pause",
+        "stop": "Stop",
+        "step": "Step",
+        "speed": "Speed",
+        "sim_time": "Simulation Time",
+        "vehicles": "Vehicles",
+        "fps": "FPS"
+    },
+    "dashboard": {
+        "avg_speed": "Average Speed",
+        "wait_time": "Wait Time",
+        "throughput": "Throughput",
+        "queue_length": "Queue Length",
+        "total_vehicles": "Total Vehicles",
+        "active_vehicles": "Active Vehicles"
+    },
+    "scenario": {
+        "new": "New Scenario",
+        "open": "Open Scenario",
+        "save": "Save Scenario",
+        "name": "Scenario Name",
+        "description": "Description",
+        "tl_algorithm": "Traffic Light Algorithm",
+        "fixed": "Fixed-Time",
+        "actuated": "Actuated",
+        "max_pressure": "Max-Pressure",
+        "green_wave": "Green Wave"
+    },
+    "settings": {
+        "title": "Settings",
+        "language": "Language",
+        "theme": "Theme",
+        "sumo_path": "SUMO Path",
+        "db_path": "Database Path"
+    },
+    "status": {
+        "running": "Running",
+        "paused": "Paused",
+        "stopped": "Stopped",
+        "error": "Error",
+        "loading_osm": "Loading OSM...",
+        "importing_osm": "Importing OSM...",
+        "saving": "Saving...",
+        "exporting": "Exporting..."
+    },
+    "error": {
+        "sumo_not_found": "SUMO not found. Check settings.",
+        "osm_invalid": "Invalid OSM file.",
+        "scenario_load": "Failed to load scenario.",
+        "scenario_save": "Failed to save scenario.",
+        "export_failed": "Failed to export data."
+    }
+}
