@@ -19,6 +19,8 @@ from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QFont, QPixmap
 from app.gui.tile_provider import TileProvider
 from app.utils.logger import get_logger
 
+logger = get_logger("map_viewer")
+
 
 DARK_COLORS = {
     "road": QColor(60, 60, 80),
@@ -515,14 +517,21 @@ class MapViewer(QGraphicsView):
             # Lazy init TL items: map tlLogic ID → junction position via TraCI
             tl_ids = tc.get_tl_ids()
             if not self._tl_init_done:
+                logger.info(f"TL lazy init: {len(tl_ids)} tl_ids, {len(self._tl_junction_positions)} junc positions")
+                created = 0
                 for tid in tl_ids:
                     try:
                         jid = tc.get_tl_junction_id(tid)
                         if jid in self._tl_junction_positions:
                             x, y = self._tl_junction_positions[jid]
                             self._create_tl_item(tid, x, y)
-                    except Exception:
+                            created += 1
+                        else:
+                            logger.warning(f"TL {tid}: jid {jid} NOT in _tl_junction_positions")
+                    except Exception as e:
+                        logger.warning(f"TL lazy init error for {tid}: {e}")
                         continue
+                logger.info(f"TL lazy init done: created {created}/{len(tl_ids)} items")
                 self._tl_init_done = True
 
             # Re-read tl_ids after init (items now exist with matching keys)
@@ -530,10 +539,12 @@ class MapViewer(QGraphicsView):
             for tid in tl_ids:
                 state = tc.get_cached_tl_state(tid)
                 if state:
-                    if 'g' in state.lower():
-                        ch = 'g'
-                    elif 'y' in state.lower():
+                    if 'y' in state:
                         ch = 'y'
+                    elif 'g' in state:
+                        ch = 'g'
+                    elif 'r' in state or 'R' in state:
+                        ch = 'r'
                     else:
                         ch = 'r'
                     self._update_tl(tid, ch)
