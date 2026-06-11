@@ -1,0 +1,116 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system deps
+        run: |
+          sudo apt update
+          sudo apt install -y sumo sumo-tools libxcb-cursor0
+      - name: Install Python deps
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run tests
+        run: python -m pytest -v
+
+  build-linux:
+    name: Build (Linux)
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system deps
+        run: |
+          sudo apt update
+          sudo apt install -y sumo sumo-tools libxcb-cursor0 patchelf
+      - name: Install Python deps
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Generate logo
+        run: python scripts/generate_logo.py
+      - name: Build executable
+        run: pyinstaller tls.spec --clean -y
+      - name: Bundle SUMO libraries
+        run: |
+          mkdir -p dist/tls/sumo
+          cp "$(which sumo)" dist/tls/sumo/
+          cp "$(which netconvert)" dist/tls/sumo/ 2>/dev/null || true
+          ldd dist/tls/sumo/sumo 2>/dev/null | awk '/=> \//{print $3}' | xargs -r cp -t dist/tls/sumo/ 2>/dev/null || true
+      - name: Package artifact
+        run: |
+          cd dist
+          tar czf ../TLS-Linux-x64.tar.gz tls
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TLS-Linux-x64
+          path: TLS-Linux-x64.tar.gz
+
+  build-windows:
+    name: Build (Windows)
+    needs: test
+    runs-on: windows-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python deps
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Generate logo
+        run: python scripts/generate_logo.py
+      - name: Build executable
+        run: pyinstaller tls.spec --clean -y
+      - name: Download SUMO portable
+        run: |
+          curl -L -o sumo.zip https://sumo.dlr.de/downloads/SUMO-1.27.0-win64-msys2.zip
+          mkdir dist\tls\sumo
+          tar -xf sumo.zip -C dist\tls\sumo --strip-components=1
+      - name: Package artifact
+        run: |
+          cd dist
+          Compress-Archive -Path tls -DestinationPath ../TLS-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TLS-Windows-x64
+          path: TLS-Windows-x64.zip
+
+  release:
+    name: Release
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            TLS-Linux-x64/TLS-Linux-x64.tar.gz
+            TLS-Windows-x64/TLS-Windows-x64.zip
+          generate_release_notes: true

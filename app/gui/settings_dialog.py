@@ -43,6 +43,13 @@ class SettingsDialog(QDialog):
             self.lang_combo.setCurrentIndex(idx)
         gen_form.addRow("Language:", self.lang_combo)
 
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["Dark", "Light"])
+        current_theme = self.config.get("app", "theme")
+        if current_theme == "light":
+            self.theme_combo.setCurrentIndex(1)
+        gen_form.addRow("Theme:", self.theme_combo)
+
         layout.addWidget(gen_group)
 
         # SUMO
@@ -114,6 +121,8 @@ class SettingsDialog(QDialog):
 
     def _on_save(self):
         self.config.set("app", "language", self.lang_combo.currentData())
+        theme = "light" if self.theme_combo.currentIndex() == 1 else "dark"
+        self.config.set("app", "theme", theme)
         self.config.set("sumo", "binary_path", self.sumo_path.text())
         self.config.set("sumo", "netconvert_path", self.netconvert_path.text())
         self.config.set("storage", "database_path", self.db_path.text())

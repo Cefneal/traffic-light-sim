@@ -1,20 +1,16 @@
-"""
-Configuration Panel
-
-Sidebar panel for configuring simulation parameters:
-traffic light algorithm, vehicle flows, and network info.
-"""
-
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QLabel, QComboBox,
-    QSpinBox, QDoubleSpinBox, QCheckBox, QPushButton, QFormLayout,
+    QSpinBox, QCheckBox, QPushButton, QFormLayout,
     QScrollArea,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
 
 class ConfigPanel(QWidget):
+    config_applied = pyqtSignal(dict)
+    map_style_changed = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         self.setFixedWidth(250)
@@ -31,7 +27,6 @@ class ConfigPanel(QWidget):
         layout = QVBoxLayout(content)
         layout.setSpacing(8)
 
-        # Title
         title = QLabel("Configuration")
         title.setFont(QFont("", 10, QFont.Weight.Bold))
         layout.addWidget(title)
@@ -81,8 +76,13 @@ class ConfigPanel(QWidget):
         # Display
         disp_group = QGroupBox("Display")
         disp_form = QFormLayout(disp_group)
+        self.map_style_combo = QComboBox()
+        self.map_style_combo.addItems(["Off", "Street", "Satellite", "Hybrid", "Terrain"])
+        self.map_style_combo.setCurrentIndex(0)
+        self.map_style_combo.currentTextChanged.connect(self._on_map_style_changed)
+        disp_form.addRow("Map Style:", self.map_style_combo)
+
         self.heatmap_cb = QCheckBox("Show Heatmap")
-        self.heatmap_cb.stateChanged.connect(self._on_heatmap)
         disp_form.addRow(self.heatmap_cb)
 
         self.labels_cb = QCheckBox("Vehicle Labels")
@@ -101,9 +101,16 @@ class ConfigPanel(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(scroll)
 
+    def _on_map_style_changed(self, text: str):
+        style_map = {
+            "Off": "off", "Street": "street", "Satellite": "satellite",
+            "Hybrid": "hybrid", "Terrain": "terrain",
+        }
+        self.map_style_changed.emit(style_map.get(text, "off"))
+
     def get_config(self) -> dict:
         algo_map = {
-            0: "fixed", 1: "actuated", 2: "max_pressure", 3: "green_wave"
+            0: "fixed", 1: "actuated", 2: "max_pressure", 3: "green_wave",
         }
         return {
             "algorithm": algo_map.get(self.algo_combo.currentIndex(), "fixed"),
@@ -113,13 +120,9 @@ class ConfigPanel(QWidget):
             "flow_rate": self.flow_spin.value(),
             "vehicle_type": self.veh_type.currentText(),
             "show_heatmap": self.heatmap_cb.isChecked(),
+            "show_labels": self.labels_cb.isChecked(),
         }
 
-    def _on_heatmap(self, state):
-        # Signal to main window
-        pass
-
     def _on_apply(self):
-        from app.utils.logger import get_logger
-        logger = get_logger("config")
-        logger.info(f"Config applied: {self.get_config()}")
+        cfg = self.get_config()
+        self.config_applied.emit(cfg)

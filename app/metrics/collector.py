@@ -12,7 +12,8 @@ class MetricsCollector:
         self.samples = deque(maxlen=max_samples)
         self._start_time = None
 
-    def record(self, time_step, speed, waiting_time, throughput, queue_length):
+    def record(self, time_step, speed, waiting_time, throughput, queue_length,
+               fuel=0.0, co2=0.0):
         elapsed = None
         if self._start_time is not None:
             elapsed = time.time() - self._start_time
@@ -23,6 +24,8 @@ class MetricsCollector:
             "waiting_time": waiting_time,
             "throughput": throughput,
             "queue_length": queue_length,
+            "fuel": fuel,
+            "co2": co2,
         })
         if self._start_time is None:
             self._start_time = time.time()
@@ -56,6 +59,8 @@ class MetricsCollector:
         waits = [s["waiting_time"] for s in self.samples]
         tputs = [s["throughput"] for s in self.samples]
         queues = [s["queue_length"] for s in self.samples]
+        fuels = [s["fuel"] for s in self.samples if "fuel" in s]
+        co2s = [s["co2"] for s in self.samples if "co2" in s]
 
         def _stats(vals):
             if not vals:
@@ -71,6 +76,8 @@ class MetricsCollector:
             "waiting_time": _stats(waits),
             "throughput": _stats(tputs),
             "queue_length": _stats(queues),
+            "fuel": _stats(fuels),
+            "co2": _stats(co2s),
             "total_samples": len(self.samples),
             "wall_time_sec": round(self.wall_time, 2),
         }

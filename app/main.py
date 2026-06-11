@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 from app.utils.config import load_config
 from app.utils.logger import get_logger
@@ -18,6 +19,10 @@ def main():
         app = QApplication(sys.argv)
         sim = SimController(config)
         window = MainWindow(config)
+        icon_path = Path(__file__).resolve().parent.parent / "resources" / "icon.png"
+        if icon_path.exists():
+            from PyQt6.QtGui import QIcon
+            window.setWindowIcon(QIcon(str(icon_path)))
         window.set_sim_controller(sim)
         window.show()
         sys.exit(app.exec())

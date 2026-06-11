@@ -43,9 +43,20 @@ class MetricsStorage:
                 avg_waiting_time REAL,
                 throughput INTEGER,
                 queue_length INTEGER,
+                fuel REAL DEFAULT 0,
+                co2 REAL DEFAULT 0,
                 FOREIGN KEY (run_id) REFERENCES simulation_runs(id)
             )
         """)
+        # Migrate existing tables if columns missing
+        try:
+            conn.execute("ALTER TABLE metrics_samples ADD COLUMN fuel REAL DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE metrics_samples ADD COLUMN co2 REAL DEFAULT 0")
+        except Exception:
+            pass
         conn.commit()
         conn.close()
 
@@ -61,11 +72,15 @@ class MetricsStorage:
         if not samples:
             return
         data = [
-            (run_id, s["time"], s["speed"], s["waiting_time"], s["throughput"], s["queue_length"])
+            (
+                run_id, s["time"], s["speed"], s["waiting_time"],
+                s["throughput"], s["queue_length"],
+                s.get("fuel", 0), s.get("co2", 0),
+            )
             for s in samples
         ]
         self.conn.executemany(
-            "INSERT INTO metrics_samples (run_id, time_step, avg_speed, avg_waiting_time, throughput, queue_length) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO metrics_samples (run_id, time_step, avg_speed, avg_waiting_time, throughput, queue_length, fuel, co2) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             data,
         )
         self.conn.commit()

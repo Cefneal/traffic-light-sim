@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: DejaVu Sans, sans-serif; font-size: 11pt; line-height: 1.6; margin: 40px; }
+  h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 8px; font-size: 22pt; }
+  h2 { color: #2980b9; border-bottom: 1px solid #bdc3c7; padding-bottom: 4px; font-size: 16pt; margin-top: 30px; }
+  h3 { color: #34495e; font-size: 13pt; margin-top: 20px; }
+  code { background: #ecf0f1; padding: 2px 5px; border-radius: 3px; font-size: 10pt; }
+  pre { background: #2c3e50; color: #ecf0f1; padding: 12px; border-radius: 5px; font-size: 10pt; overflow-x: auto; }
+  .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 15px 0; }
+  .warning { background: #f8d7da; border-left: 4px solid #dc3545; padding: 10px; margin: 15px 0; }
+  .tip { background: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 15px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  th { background: #3498db; color: white; }
+  tr:nth-child(even) { background: #f2f2f2; }
+  img { max-width: 100%; }
+  ul, ol { margin: 8px 0; }
+  li { margin: 4px 0; }
+  .pagebreak { page-break-before: always; }
+  .toc { page-break-after: always; }
+  .toc a { color: #2980b9; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ul { list-style: none; padding-left: 0; }
+  .toc li { padding: 4px 0; }
+  .toc li li { padding-left: 20px; }
+  footer { text-align: center; color: #95a5a6; font-size: 9pt; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<h1>Traffic Light Simulation — Panduan Lengkap</h1>
+<p><em>Versi 1.0 | Juni 2026</em></p>
+
+<div class="toc">
+<h2>Daftar Isi</h2>
+<ul>
+  <li><a href="#bab1">1. Persiapan & Instalasi</a></li>
+  <li><a href="#bab2">2. Struktur Project</a></li>
+  <li><a href="#bab3">3. Cara Menjalankan App</a></li>
+  <li><a href="#bab4">4. Mendapatkan & Menggunakan OSM Map</a></li>
+  <li><a href="#bab5">5. Netedit — Editor Jalan & Traffic Light</a></li>
+  <li><a href="#bab6">6. Membuat Rute Kendaraan</a></li>
+  <li><a href="#bab7">7. Menggunakan Config Panel & Algoritma TL</a></li>
+  <li><a href="#bab8">8. Dashboard & Export Data</a></li>
+  <li><a href="#bab9">9. File .sumocfg — Penjelasan Lengkap</a></li>
+  <li><a href="#bab10">10. Troubleshooting</a></li>
+  <li><a href="#bab11">11. Script Siap Pakai</a></li>
+</ul>
+</div>
+
+<!-- BAB 1 -->
+<h2 id="bab1">1. Persiapan & Instalasi</h2>
+
+<h3>1.1 SUMO (Simulation of Urban MObility)</h3>
+<p>SUMO adalah engine simulasi lalu lintas yang digunakan app ini.</p>
+<ul>
+  <li><strong>Linux (Arch):</strong> <code>yay -S sumo</code></li>
+  <li><strong>Linux (Ubuntu/Debian):</strong> <code>sudo apt install sumo sumo-tools</code></li>
+  <li><strong>Windows:</strong> Download installer dari <code>https://sumo.dlr.de/downloads.html</code></li>
+</ul>
+
+<p>Setelah install, cek:</p>
+<pre>sumo --version</pre>
+
+<div class="note">
+<strong>Catatan:</strong> Di Arch Linux, SUMO mungkin terinstall di PATH berbeda. Cek dengan <code>which sumo</code>.
+Jika tidak ditemukan, tambahkan ke PATH atau install ulang.
+</div>
+
+<h3>1.2 Python & Dependencies</h3>
+<p>Project ini membutuhkan Python 3.11+.</p>
+<pre>cd /home/Cefneal/traffic-light-sim
+pip install -e .</pre>
+
+<p>Atau install manual:</p>
+<pre>pip install PyQt6 pyqtgraph fpdf2</pre>
+
+<p>Cek apakah semua siap:</p>
+<pre>python3 -c "from PyQt6.QtWidgets import QApplication; print('PyQt6 OK')"
+python3 -c "import traci; print('traci OK')"</pre>
+
+<h3>1.3 Verifikasi Instalasi Lengkap</h3>
+<pre>sumo --version
+python3 --version
+pip list | grep -E "PyQt|pyqtgraph|traci"</pre>
+
+<div class="tip">
+<strong>Tip:</strong> Jika belum install sebagai package, pastikan folder <code>SUMO_HOME/tools/</code> ada di PYTHONPATH.
+</div>
+
+<!-- BAB 2 -->
+<h2 id="bab2" class="pagebreak">2. Struktur Project</h2>
+
+<pre>
+traffic-light-sim/
+├── app/
+│   ├── main.py              ← Entry point aplikasi
+│   ├── engine/              ← P1: Simulasi engine (TraCI, control, algoritma)
+│   ├── gui/                 ← P3: GUI (window, peta, dashboard, config)
+│   ├── models/              ← P1: Data model
+│   ├── metrics/             ← P2: Statistik & database
+│   └── utils/               ← P2: Config, logger, localization
+├── sim/
+│   ├── osm_map/             ← Hasil convert OSM + routes
+│   │   ├── network.net.xml
+│   │   ├── routes.xml
+│   │   └── test.sumocfg
+│   └── map/                 ← Contoh simpang 4
+│       ├── network.net.xml
+│       ├── routes.xml
+│       └── test.sumocfg
+├── scripts/
+│   ├── siapkan_map.sh       ← Script 1-step: OSM → .sumocfg siap pakai
+│   ├── build_linux.sh       ← Build installer Linux
+│   └── build_windows.bat    ← Build installer Windows
+├── resources/
+│   └── locales/             ← Terjemahan ID/EN
+└── docs/                    ← Dokumentasi
+</pre>
+
+<!-- BAB 3 -->
+<h2 id="bab3">3. Cara Menjalankan App</h2>
+
+<h3>3.1 Jalankan Aplikasi</h3>
+<pre>cd /home/Cefneal/traffic-light-sim
+python -m app.main</pre>
+
+<div class="warning">
+<strong>Penting:</strong> Jalankan dari folder root project, bukan dari folder lain, karena path konfigurasi relatif ke sini.
+</div>
+
+<h3>3.2 Memulai Simulasi</h3>
+<ol>
+  <li>Klik tombol <strong>▶ Play</strong> di toolbar atas</li>
+  <li>Pilih file <code>.sumocfg</code> (contoh: <code>sim/osm_map/test.sumocfg</code>)</li>
+  <li>Simulasi otomatis berjalan — kendaraan bergerak di peta</li>
+</ol>
+
+<h3>3.3 Kontrol Simulasi</h3>
+<table>
+  <tr><th>Tombol</th><th>Fungsi</th></tr>
+  <tr><td>▶ Play</td><td>Mulai simulasi baru / lanjutkan dari pause</td></tr>
+  <tr><td>⏸ Pause</td><td>Jeda simulasi</td></tr>
+  <tr><td>⏹ Stop</td><td>Berhenti total, reset ke awal</td></tr>
+  <tr><td>⏭ Step</td><td>Maju 1 langkah waktu (berguna pas pause)</td></tr>
+  <tr><td>Slider Speed</td><td>Atur kecepatan simulasi (0.1x – 10x)</td></tr>
+</table>
+
+<div class="tip">
+<strong>Tip:</strong> Untuk simulasi cepat, naikkan speed slider ke 5x atau 10x.
+Untuk observasi detail, turunkan ke 1x atau 0.5x.
+</div>
+
+<h3>3.4 Navigasi Peta</h3>
+<ul>
+  <li><strong>Drag</strong> dengan mouse → geser peta</li>
+  <li><strong>Scroll wheel</strong> → zoom in/out</li>
+</ul>
+
+<!-- BAB 4 -->
+<h2 id="bab4" class="pagebreak">4. Mendapatkan & Menggunakan OSM Map</h2>
+
+<h3>4.1 Download dari OpenStreetMap</h3>
+<ol>
+  <li>Buka <a href="https://www.openstreetmap.org/export">https://www.openstreetmap.org/export</a></li>
+  <li>Zoom ke area yang diinginkan (pilih kota/jalan)</li>
+  <li>Klik <strong>Export</strong> → download file <code>.osm</code></li>
+</ol>
+<div class="note">
+<strong>Batasan:</strong> Export gratis dibatasi area kecil. Untuk area besar, gunakan Geofabrik: <code>https://download.geofabrik.de/</code>
+</div>
+
+<h3>4.2 Import ke App</h3>
+<p><strong>Cara 1 — Via App:</strong></p>
+<ol>
+  <li>Buka app: <code>python -m app.main</code></li>
+  <li>Menu <strong>File → Import OSM...</strong></li>
+  <li>Pilih file <code>.osm</code> yang sudah didownload</li>
+  <li>Tunggu proses convert, peta akan tampil</li>
+</ol>
+<p><strong>Catatan:</strong> App hanya menampilkan peta. Untuk menjalankan simulasi dengan kendaraan, lanjut ke langkah 5-6.</p>
+
+<p><strong>Cara 2 — Via Script (1 langsung jadi):</strong></p>
+<pre>bash scripts/siapkan_map.sh /path/file.osm</pre>
+<p>Script ini otomatis:</p>
+<ol>
+  <li>Convert OSM → network SUMO</li>
+  <li>Generate rute kendaraan random</li>
+  <li>Buat file <code>.sumocfg</code></li>
+  <li>Output di folder <code>sim/nama_file/</code></li>
+</ol>
+
+<p><strong>Cara 3 — Manual step-by-step:</strong></p>
+<pre># 1. Convert OSM ke SUMO network
+netconvert --osm /path/file.osm -o network.net.xml
+
+# 2. Generate rute kendaraan
+python3 $SUMO_HOME/tools/randomTrips.py \
+    -n network.net.xml -o routes.xml \
+    --begin 0 --end 360 --period 2 -r 500
+
+# 3. Buat file konfigurasi
+cat > test.sumocfg << 'EOF'
+&lt;configuration&gt;
+    &lt;input&gt;
+        &lt;net-file value="network.net.xml"/&gt;
+        &lt;route-files value="routes.xml"/&gt;
+    &lt;/input&gt;
+    &lt;time&gt;
+        &lt;begin value="0"/&gt;
+        &lt;end value="360"/&gt;
+    &lt;/time&gt;
+&lt;/configuration&gt;
+EOF</pre>
+
+<h3>4.3 Parameter randomTrips.py</h3>
+<table>
+  <tr><th>Parameter</th><th>Fungsi</th><th>Contoh</th></tr>
+  <tr><td><code>-n</code></td><td>File network (.net.xml)</td><td><code>-n network.net.xml</code></td></tr>
+  <tr><td><code>-o</code></td><td>Output file routes</td><td><code>-o routes.xml</code></td></tr>
+  <tr><td><code>--begin</code></td><td>Waktu mulai (detik)</td><td><code>--begin 0</code></td></tr>
+  <tr><td><code>--end</code></td><td>Waktu selesai (detik)</td><td><code>--end 360</code></td></tr>
+  <tr><td><code>--period</code></td><td>Interval kendaraan (detik)</td><td><code>--period 2</code></td></tr>
+  <tr><td><code>-r</code></td><td>Rate kendaraan per jam</td><td><code>-r 500</code></td></tr>
+  <tr><td><code>--vehicle-class</code></td><td>Jenis kendaraan</td><td><code>--vehicle-class passenger</code></td></tr>
+</table>
+
+<!-- BAB 5 -->
+<h2 id="bab5" class="pagebreak">5. Netedit — Editor Jalan & Traffic Light</h2>
+
+<h3>5.1 Membuka Netedit</h3>
+<pre>netedit</pre>
+<p>Atau buka langsung dengan network:</p>
+<pre>netedit -s network.net.xml</pre>
+
+<h3>5.2 Cara Menggambar Jalan</h3>
+<ol>
+  <li>Klik tab <strong>Network</strong> di kiri atas</li>
+  <li>Pilih mode <strong>Edge</strong> (jalan)</li>
+  <li>Klik di canvas untuk menempatkan node (simpang)</li>
+  <li>Klik node pertama, lalu node kedua untuk membuat jalan di antaranya</li>
+  <li>Klik kanan untuk selesai</li>
+</ol>
+
+<h3>5.3 Menambahkan Traffic Light</h3>
+<ol>
+  <li>Mode <strong>Junction</strong> → pilih simpang yang ingin diubah</li>
+  <li>Di panel kanan, set <strong>Type</strong> → <code>traffic_light</code></li>
+  <li>Klik <strong>Apply</strong></li>
+  <li>Simpan: <strong>File → Save Network</strong></li>
+</ol>
+
+<h3>5.4 Mengatur Fase Traffic Light</h3>
+<ol>
+  <li>Klik <strong>Traffic Lights</strong> tab di panel kiri</li>
+  <li>Pilih TL ID yang ingin diedit</li>
+  <li>Di panel kanan, atur:
+    <ul>
+      <li><strong>Duration</strong> — durasi fase (detik)</li>
+      <li><strong>State</strong> — warna: <code>r</code> (merah), <code>y</code> (kuning), <code>g</code> (hijau), <code>G</code> (hijau prioritas)</li>
+    </ul>
+  </li>
+  <li>Klik <strong>Apply</strong> untuk menyimpan perubahan</li>
+</ol>
+
+<h3>5.5 Shortcut Penting Netedit</h3>
+<table>
+  <tr><th>Shortcut</th><th>Fungsi</th></tr>
+  <tr><td><code>Ctrl+S</code></td><td>Simpan</td></tr>
+  <tr><td><code>Ctrl+Z</code></td><td>Undo</td></tr>
+  <tr><td><code>Scroll</code></td><td>Zoom</td></tr>
+  <tr><td><code>Drag</code></td><td>Geser view</td></tr>
+  <tr><td><code>E</code></td><td>Mode Edge (jalan)</td></tr>
+  <tr><td><code>J</code></td><td>Mode Junction (simpang)</td></tr>
+  <tr><td><code>Del</code></td><td>Hapus elemen terpilih</td></tr>
+</table>
+
+<!-- BAB 6 -->
+<h2 id="bab6">6. Membuat Rute Kendaraan</h2>
+
+<h3>6.1 Generate Routes Otomatis</h3>
+<pre>python3 $SUMO_HOME/tools/randomTrips.py \
+    -n network.net.xml \
+    -o routes.xml \
+    --begin 0 --end 360 --period 2 -r 500</pre>
+
+<h3>6.2 Membuat Rute Manual</h3>
+<p>Edit file XML langsung:</p>
+<pre>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;routes&gt;
+    &lt;vType id="car" accel="2.6" decel="4.5" sigma="0.5"
+           length="4.5" maxSpeed="13.89" color="0,0,1"/&gt;
+
+    &lt;route id="r1" edges="e1 e2"/&gt;
+    &lt;route id="r2" edges="e3 e4"/&gt;
+
+    &lt;flow id="f1" route="r1" begin="0" end="300" vehsPerHour="360"/&gt;
+    &lt;flow id="f2" route="r2" begin="0" end="300" vehsPerHour="360"/&gt;
+&lt;/routes&gt;</pre>
+
+<table>
+  <tr><th>Elemen</th><th>Fungsi</th></tr>
+  <tr><td><code>vType</code></td><td>Definisi tipe kendaraan (percepatan, ukuran, warna)</td></tr>
+  <tr><td><code>route</code></td><td>Rute: daftar edge ID yang dilalui</td></tr>
+  <tr><td><code>flow</code></td><td>Aliran kendaraan: route, waktu mulai/selesai, jumlah per jam</td></tr>
+  <tr><td><code>vehicle</code></td><td>Kendaraan individual (alternatif flow)</td></tr>
+</table>
+
+<!-- BAB 7 -->
+<h2 id="bab7" class="pagebreak">7. Config Panel & Algoritma TL</h2>
+
+<h3>7.1 Panel Konfigurasi (Kanan Atas)</h3>
+<table>
+  <tr><th>Field</th><th>Fungsi</th><th>Default</th></tr>
+  <tr><td>Algorithm</td><td>Pilih algoritma traffic light</td><td>Fixed-Time</td></tr>
+  <tr><td>Cycle</td><td>Siklus traffic light (detik)</td><td>60s</td></tr>
+  <tr><td>Min Green</td><td>Waktu hijau minimal</td><td>10s</td></tr>
+  <tr><td>Max Green</td><td>Waktu hijau maksimal</td><td>45s</td></tr>
+  <tr><td>Flow Rate</td><td>Kendaraan per jam</td><td>500 veh/h</td></tr>
+  <tr><td>Type</td><td>Jenis kendaraan</td><td>car</td></tr>
+</table>
+
+<h3>7.2 Algoritma Traffic Light</h3>
+<table>
+  <tr><th>Algoritma</th><th>Cara Kerja</th><th>Cocok Untuk</th></tr>
+  <tr><td><strong>Fixed-Time</strong></td><td>Siklus tetap (cycle time), setiap fase dapat durasi sama</td><td>Persimpangan dengan lalu lintas stabil</td></tr>
+  <tr><td><strong>Actuated</strong></td><td>Fase hijau diperpanjang jika ada kendaraan mendekat (sensor)</td><td>Persimpangan dengan lalu lintas bervariasi</td></tr>
+  <tr><td><strong>Max-Pressure</strong></td><td>Pilih fase dengan tekanan tertinggi (selisih kendaraan masuk - keluar)</td><td>Jaringan jalan kompleks, multi-simpang</td></tr>
+  <tr><td><strong>Green Wave</strong></td><td>Sinkronisasi TL berurutan untuk lalu lintas satu arah</td><td>Jalan arteri dengan banyak TL</td></tr>
+</table>
+
+<!-- BAB 8 -->
+<h2 id="bab8">8. Dashboard & Export Data</h2>
+
+<h3>8.1 Grafik Realtime</h3>
+<p>Dashboard (kanan bawah) menampilkan 4 grafik:</p>
+<ul>
+  <li><strong>Avg Speed</strong> — kecepatan rata-rata kendaraan</li>
+  <li><strong>Avg Wait Time</strong> — waktu tunggu rata-rata</li>
+  <li><strong>Throughput</strong> — jumlah kendaraan terkirim</li>
+  <li><strong>Queue Length</strong> — panjang antrian (kendaraan berhenti)</li>
+</ul>
+
+<h3>8.2 Export Data</h3>
+<p>Menu <strong>File → Export CSV</strong> atau <strong>Export JSON</strong>.</p>
+<p>File berisi kolom:</p>
+<pre>time, speed, wait_time, throughput, queue
+0.0, 13.89, 0.0, 0, 0
+1.0, 12.5, 0.5, 4, 2
+...</pre>
+
+<!-- BAB 9 -->
+<h2 id="bab9">9. File .sumocfg — Penjelasan Lengkap</h2>
+
+<p>File <code>.sumocfg</code> adalah file konfigurasi simulasi SUMO. Berikut struktur lengkapnya:</p>
+
+<pre>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;configuration&gt;
+    &lt;input&gt;
+        &lt;net-file value="network.net.xml"/&gt;
+        &lt;route-files value="routes.xml"/&gt;
+        &lt;additional-files value="detectors.xml"/&gt;
+    &lt;/input&gt;
+    &lt;time&gt;
+        &lt;begin value="0"/&gt;
+        &lt;end value="360"/&gt;
+    &lt;/time&gt;
+    &lt;processing&gt;
+        &lt;time-to-teleport value="-1"/&gt;
+        &lt;default.speeddev value="0.1"/&gt;
+    &lt;/processing&gt;
+    &lt;report&gt;
+        &lt;no-warnings value="true"/&gt;
+        &lt;verbose value="false"/&gt;
+    &lt;/report&gt;
+&lt;/configuration&gt;</pre>
+
+<table>
+  <tr><th>Section</th><th>Parameter</th><th>Fungsi</th></tr>
+  <tr><td><code>input</code></td><td><code>net-file</code></td><td>File network (.net.xml)</td></tr>
+  <tr><td><code>input</code></td><td><code>route-files</code></td><td>File rute kendaraan</td></tr>
+  <tr><td><code>time</code></td><td><code>begin</code></td><td>Waktu mulai simulasi (detik)</td></tr>
+  <tr><td><code>time</code></td><td><code>end</code></td><td>Waktu selesai simulasi (detik)</td></tr>
+  <tr><td><code>processing</code></td><td><code>time-to-teleport</code></td><td>Timeout kendaraan macet (-1 = nonaktif)</td></tr>
+</table>
+
+<!-- BAB 10 -->
+<h2 id="bab10" class="pagebreak">10. Troubleshooting</h2>
+
+<h3>Aplikasi tidak bisa jalan</h3>
+<table>
+  <tr><th>Gejala</th><th>Penyebab</th><th>Solusi</th></tr>
+  <tr><td>"PyQt6 not available"</td><td>PyQt6 tidak terinstall</td><td><code>pip install PyQt6</code></td></tr>
+  <tr><td>"No module named traci"</td><td>SUMO tools tidak di PATH</td><td>Install SUMO, atau set <code>SUMO_HOME</code></td></tr>
+  <tr><td>"Connection refused"</td><td>SUMO tidak bisa start</td><td>Cek <code>which sumo</code>, pastikan binary ada</td></tr>
+</table>
+
+<h3>Simulasi jalan tapi peta kosong</h3>
+<p>Network belum diload. Pastikan file <code>.sumocfg</code> yang dipilih bener dan <code>net-file</code> mengarah ke <code>.net.xml</code> yang valid.</p>
+
+<h3>File .osm tidak bisa diimport</h3>
+<ul>
+  <li>Pastikan file adalah OSM XML (bukan JSON/GPX)</li>
+  <li>Pastikan <code>netconvert</code> ada di PATH</li>
+  <li>Coba convert manual: <code>netconvert --osm file.osm -o network.net.xml</code></li>
+</ul>
+
+<h3>SUMO crash / error</h3>
+<p>Jalankan langsung untuk lihat error:</p>
+<pre>sumo -c test.sumocfg</pre>
+
+<h3>Kendaraan tidak muncul</h3>
+<ul>
+  <li>Cek <code>routes.xml</code> — pastikan ada <code>flow</code> atau <code>vehicle</code></li>
+  <li>Cek edge ID di routes cocok dengan edge ID di network</li>
+  <li>Pastikan <code>begin</code> & <code>end</code> di .sumocfg mencakup waktu rute</li>
+</ul>
+
+<h3>Lampu merah tidak berubah</h3>
+<p>Algoritma custom belum terintegrasi. Gunakan default SUMO atau tunggu update P1.</p>
+
+<!-- BAB 11 -->
+<h2 id="bab11">11. Script Siap Pakai</h2>
+
+<h3>11.1 Siapkan OSM Map</h3>
+<pre>bash scripts/siapkan_map.sh /path/file.osm</pre>
+<p>Hasil: folder <code>sim/nama_file/</code> dengan <code>test.sumocfg</code> siap pakai.</p>
+
+<h3>11.2 Generate Routes</h3>
+<pre>python3 $SUMO_HOME/tools/randomTrips.py \
+    -n network.net.xml \
+    -o routes.xml \
+    --begin 0 --end 360 --period 2 -r 500</pre>
+
+<h3>11.3 Jalankan SUMO Langsung (debug)</h3>
+<pre>sumo -c test.sumocfg --no-warnings true</pre>
+
+<h3>11.4 Jalankan SUMO dengan GUI</h3>
+<pre>sumo-gui -c test.sumocfg</pre>
+
+<h3>11.5 Cek Network Info</h3>
+<pre>netconvert --sumo-network network.net.xml --summary-output network_info.xml</pre>
+
+<hr>
+
+<footer>
+Traffic Light Simulation v1.0 | Open Source (GPL v2) | SUMO Engine
+</footer>
+
+</body>
+</html>
