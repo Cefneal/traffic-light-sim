@@ -19,7 +19,6 @@ class TraCIClient:
         self._tl_subscribed: set[str] = set()
 
         self._cached_tl_ids: list[str] = []
-        self._cached_tl_junctions: dict[str, str] = {}
 
     @property
     def is_connected(self) -> bool:
@@ -252,15 +251,7 @@ class TraCIClient:
             return ""
 
     def get_tl_junction_id(self, tl_id: str) -> str:
-        if tl_id in self._cached_tl_junctions:
-            return self._cached_tl_junctions[tl_id]
-        if not self._connected:
-            return ""
-        import traci
-        try:
-            return traci.trafficlight.getJunctionID(tl_id)
-        except Exception:
-            return ""
+        return ""
 
     # ── TL Subscriptions (zero socket calls for GUI reads) ────
 
@@ -284,11 +275,6 @@ class TraCIClient:
         import traci
         try:
             self._cached_tl_ids = list(traci.trafficlight.getIDList())
-            for tid in self._cached_tl_ids:
-                try:
-                    self._cached_tl_junctions[tid] = traci.trafficlight.getJunctionID(tid)
-                except Exception:
-                    self._cached_tl_junctions[tid] = ""
         except Exception as e:
             self.logger.warning(f"Failed to cache TL data: {e}")
 
@@ -510,5 +496,4 @@ class TraCIClient:
             self._subscribed_edges.clear()
             self._subscribed_vehicles.clear()
             self._cached_tl_ids.clear()
-            self._cached_tl_junctions.clear()
             self.logger.info("Disconnected from SUMO")

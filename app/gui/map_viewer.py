@@ -114,6 +114,7 @@ class MapViewer(QGraphicsView):
         # Traffic light lazy init — keyed by tlLogic ID (not junction ID)
         self._tl_init_done = False
         self._tl_junction_positions: dict[str, tuple[float, float]] = {}
+        self._tl_logic_positions: dict[str, tuple[float, float]] = {}
 
         # Adaptive FPS
         self._target_fps = 30
@@ -151,6 +152,7 @@ class MapViewer(QGraphicsView):
         self._clear_tiles()
         self._tl_init_done = False
         self._tl_junction_positions.clear()
+        self._tl_logic_positions.clear()
 
         try:
             tree = ET.parse(net_path)
@@ -210,6 +212,12 @@ class MapViewer(QGraphicsView):
                 # Store traffic light junction positions (TL items created lazily)
                 if junction.get("tl") == "true" or "traffic_light" in jtype:
                     self._tl_junction_positions[junction.get("id")] = (x, y)
+
+            # Map tlLogic IDs to positions (matches junction IDs where possible)
+            for tl in root.findall(".//tlLogic"):
+                tl_id = tl.get("id")
+                if tl_id in self._tl_junction_positions:
+                    self._tl_logic_positions[tl_id] = self._tl_junction_positions[tl_id]
 
             # Road labels
             font_road = QFont("", 7)
@@ -514,20 +522,17 @@ class MapViewer(QGraphicsView):
             if self.show_heatmap:
                 self._render_heatmap(tc)
 
-            # Lazy init TL items: map tlLogic ID → junction position via TraCI
+            # Lazy init TL items: use tlLogic positions from net.xml
             tl_ids = tc.get_tl_ids()
             if not self._tl_init_done:
-                logger.info(f"TL lazy init: {len(tl_ids)} tl_ids, {len(self._tl_junction_positions)} junc positions")
+                logger.info(f"TL lazy init: {len(tl_ids)} tl_ids, {len(self._tl_logic_positions)} in net.xml")
                 created = 0
                 for tid in tl_ids:
                     try:
-                        jid = tc.get_tl_junction_id(tid)
-                        if jid in self._tl_junction_positions:
-                            x, y = self._tl_junction_positions[jid]
+                        if tid in self._tl_logic_positions:
+                            x, y = self._tl_logic_positions[tid]
                             self._create_tl_item(tid, x, y)
                             created += 1
-                        else:
-                            logger.warning(f"TL {tid}: jid {jid} NOT in _tl_junction_positions")
                     except Exception as e:
                         logger.warning(f"TL lazy init error for {tid}: {e}")
                         continue
@@ -653,6 +658,7 @@ class MapViewer(QGraphicsView):
         self.tl_items.clear()
         self._tl_init_done = False
         self._tl_junction_positions.clear()
+        self._tl_logic_positions.clear()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
