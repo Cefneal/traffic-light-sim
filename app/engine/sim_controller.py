@@ -101,7 +101,7 @@ class SimController:
                             index=i,
                             state=p.state,
                             duration=p.duration,
-                            next=p.next,
+                            next=p.next[0] if isinstance(p.next, tuple) and p.next else -1,
                         ))
 
                 tl = TrafficLight(
