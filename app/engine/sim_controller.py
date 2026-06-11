@@ -125,6 +125,7 @@ class SimController:
                 self.logger.warning(f"Failed to build TL {tid}: {e}")
 
         self.traci.subscribe_all_tls(list(self._traffic_lights.keys()))
+        self.traci.cache_tl_data()
         self.logger.info(f"Built {len(self._traffic_lights)} traffic lights")
 
     # ── Simulation lifecycle ──────────────────────────────────
