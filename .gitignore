@@ -33,15 +33,13 @@ logs/
 # Database
 *.sqlite
 *.sqlite3
+*.db
+data/
 
-# SUMO outputs
-*.net.xml
-*.rou.xml
-*.sumocfg
-*.add.xml
-*.tls.xml
-*.edg.xml
-*.nod.xml
+# SUMO auto-generated (build products in temp)
+tmp/**/*.net.xml
+tmp/**/*.rou.xml
+tmp/**/*.sumocfg
 
 # Downloaded SUMO binaries
 sumo_bin/linux/

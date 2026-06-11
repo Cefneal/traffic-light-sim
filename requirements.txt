@@ -1,0 +1,7 @@
+PyQt6>=6.5
+pyqtgraph>=0.13
+traci
+weasyprint>=60
+
+# Optional — for building standalone executable:
+# pyinstaller>=6.0

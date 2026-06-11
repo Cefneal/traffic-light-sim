@@ -1,0 +1,77 @@
+{
+    "app": {
+        "name": "TLS - Traffic Light Simulation",
+        "loading": "Memuat...",
+        "ready": "Siap",
+        "exit": "Keluar",
+        "save": "Simpan",
+        "cancel": "Batal"
+    },
+    "menu": {
+        "file": "Berkas",
+        "import_osm": "Import OSM...",
+        "export": "Ekspor",
+        "export_csv": "Ekspor CSV",
+        "export_json": "Ekspor JSON",
+        "scenario": "Skenario",
+        "new_scenario": "Skenario Baru",
+        "open_scenario": "Buka Skenario",
+        "save_scenario": "Simpan Skenario",
+        "settings": "Pengaturan",
+        "exit": "Keluar"
+    },
+    "controls": {
+        "play": "Mainkan",
+        "pause": "Jeda",
+        "stop": "Berhenti",
+        "step": "Langkah",
+        "speed": "Kecepatan",
+        "sim_time": "Waktu Simulasi",
+        "vehicles": "Kendaraan",
+        "fps": "FPS"
+    },
+    "dashboard": {
+        "avg_speed": "Kecepatan Rata-rata",
+        "wait_time": "Waktu Tunggu",
+        "throughput": "Throughput",
+        "queue_length": "Panjang Antrian",
+        "total_vehicles": "Total Kendaraan",
+        "active_vehicles": "Kendaraan Aktif"
+    },
+    "scenario": {
+        "new": "Skenario Baru",
+        "open": "Buka Skenario",
+        "save": "Simpan Skenario",
+        "name": "Nama Skenario",
+        "description": "Deskripsi",
+        "tl_algorithm": "Algoritma Traffic Light",
+        "fixed": "Fixed-Time",
+        "actuated": "Actuated",
+        "max_pressure": "Max-Pressure",
+        "green_wave": "Green Wave"
+    },
+    "settings": {
+        "title": "Pengaturan",
+        "language": "Bahasa",
+        "theme": "Tema",
+        "sumo_path": "Lokasi SUMO",
+        "db_path": "Lokasi Database"
+    },
+    "status": {
+        "running": "Berjalan",
+        "paused": "Dijeda",
+        "stopped": "Berhenti",
+        "error": "Error",
+        "loading_osm": "Memuat OSM...",
+        "importing_osm": "Mengimpor OSM...",
+        "saving": "Menyimpan...",
+        "exporting": "Mengekspor..."
+    },
+    "error": {
+        "sumo_not_found": "SUMO tidak ditemukan. Periksa pengaturan.",
+        "osm_invalid": "File OSM tidak valid.",
+        "scenario_load": "Gagal memuat skenario.",
+        "scenario_save": "Gagal menyimpan skenario.",
+        "export_failed": "Gagal mengekspor data."
+    }
+}

@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: DejaVu Sans, sans-serif; font-size: 11pt; line-height: 1.6; margin: 40px; color: #2c3e50; }
+  h1 { color: #2c3e50; border-bottom: 3px solid #e74c3c; padding-bottom: 8px; font-size: 22pt; }
+  h2 { color: #c0392b; border-bottom: 2px solid #e74c3c; padding-bottom: 4px; font-size: 17pt; margin-top: 35px; }
+  h3 { color: #2980b9; font-size: 13pt; margin-top: 25px; margin-bottom: 8px; }
+  h4 { color: #34495e; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; }
+  code { background: #ecf0f1; padding: 2px 5px; border-radius: 3px; font-size: 10pt; }
+  pre { background: #2c3e50; color: #ecf0f1; padding: 12px; border-radius: 5px; font-size: 10pt; overflow-x: auto; }
+  .critical { background: #f8d7da; border-left: 5px solid #dc3545; padding: 10px 15px; margin: 12px 0; }
+  .warning { background: #fff3cd; border-left: 5px solid #ffc107; padding: 10px 15px; margin: 12px 0; }
+  .improve { background: #d4edda; border-left: 5px solid #28a745; padding: 10px 15px; margin: 12px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; }
+  th, td { border: 1px solid #ddd; padding: 7px 10px; text-align: left; }
+  th { background: #34495e; color: white; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  ul, ol { margin: 5px 0; }
+  li { margin: 3px 0; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 8pt; font-weight: bold; }
+  .tag-critical { background: #dc3545; color: white; }
+  .tag-high { background: #fd7e14; color: white; }
+  .tag-medium { background: #ffc107; color: #333; }
+  .tag-low { background: #28a745; color: white; }
+  .tag-done { background: #6c757d; color: white; }
+  .toc { page-break-after: always; }
+  .toc ul { list-style: none; padding-left: 0; }
+  .toc li { padding: 5px 0; font-size: 11pt; }
+  .toc a { color: #2980b9; text-decoration: none; }
+  .pagebreak { page-break-before: always; }
+  footer { text-align: center; color: #95a5a6; font-size: 9pt; margin-top: 50px; border-top: 1px solid #ddd; padding-top: 15px; }
+  .summary-box { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+  .summary-box table { color: white; }
+  .summary-box th { background: #34495e; }
+</style>
+</head>
+<body>
+
+<h1>Traffic Light Simulation — Audit & Optimization Report</h1>
+<p><em>Versi 1.0 | Juni 2026 | Role-based code review (P1 Engine, P2 Backend, P3 GUI)</em></p>
+
+<div class="summary-box">
+<h3>Ringkasan Eksekutif</h3>
+<table>
+  <tr><th>Aspek</th><th>Status</th><th>Keterangan</th></tr>
+  <tr><td>App bisa dijalankan</td><td>✅</td><td>GUI tampil, Play/Stop/Step berfungsi</td></tr>
+  <tr><td>Simulasi SUMO berjalan</td><td>✅</td><td>SUMO engine terkoneksi via TraCI</td></tr>
+  <tr><td>Traffic Light tampil di peta</td><td>⚠️</td><td>Rendering TL kurang lengkap (8 state SUMO)</td></tr>
+  <tr><td>Algoritma TL custom</td><td>❌</td><td>Dead code — tidak pernah dipanggil</td></tr>
+  <tr><td>Apply Config</td><td>❌</td><td>Button cuma log, tidak ada efek</td></tr>
+  <tr><td>Scenario management</td><td>❌</td><td>New/Open/Save hanya dialog kosong</td></tr>
+  <tr><td>Data persistence (SQLite)</td><td>⚠️</td><td>Storage class ada tapi tidak terhubung ke GUI</td></tr>
+  <tr><td>Localization</td><td>❌</td><td>Fungsi t() ada, semua string masih hardcoded</td></tr>
+  <tr><td>Tests</td><td>❌</td><td>Tidak ada satupun test file</td></tr>
+</table>
+</div>
+
+<div class="toc">
+<h2>Daftar Isi</h2>
+<ul>
+  <li><a href="#s1">1. Critical Issues (Harus Segera Dibenerin)</a></li>
+  <li><a href="#s2">2. P1 Engine — Issues & Optimization</a></li>
+  <li><a href="#s3">3. P2 Backend — Issues & Optimization</a></li>
+  <li><a href="#s4">4. P3 GUI — Issues & Optimization</a></li>
+  <li><a href="#s5">5. Performance Optimization</a></li>
+  <li><a href="#s6">6. Recommended Features to Add</a></li>
+  <li><a href="#s7">7. File-by-File Checklist</a></li>
+</ul>
+</div>
+
+<!-- SECTION 1 -->
+<h2 id="s1" class="pagebreak">1. Critical Issues (Harus Segera Dibenerin)</h2>
+
+<div class="critical">
+<h3>🔴 C1: TL Algorithms Tidak Terhubung ke Sim Controller</h3>
+<p><strong>Lokasi:</strong> <code>app/engine/sim_controller.py</code> + <code>app/engine/tl_algorithms.py</code></p>
+<p><strong>Masalah:</strong> File <code>tl_algorithms.py</code> berisi 4 algoritma traffic light (Fixed-Time, Actuated, Max-Pressure, Green Wave) lengkap dengan <code>ALGORITHM_MAP</code> dan <code>get_controller()</code>. Tapi <code>sim_controller._run_loop()</code> hanya memanggil <code>self.traci.simulationStep()</code> tanpa pernah mengimpor atau memanggil algoritma tersebut.</p>
+<p><strong>Dampak:</strong> Traffic light berjalan dengan logika default SUMO. Pemilihan algoritma di Config Panel tidak berpengaruh sama sekali. Fitur utama aplikasi ini tidak berfungsi.</p>
+<p><strong>Fix:</strong> Tambahkan di <code>_run_loop()</code> setelah setiap step:
+<pre>from app.engine.tl_algorithms import get_controller
+tl_ids = self.traci.get_tl_ids()
+for tid in tl_ids:
+    tl = self._build_traffic_light(tid)
+    ctrl = get_controller("fixed", tl, self.traci, self.current_time)
+    if ctrl:
+        ctrl()</pre></p>
+</div>
+
+<div class="critical">
+<h3>🔴 C2: Tidak Ada Jembatan SUMO → Model Object</h3>
+<p><strong>Lokasi:</strong> <code>app/engine/sim_controller.py</code> + <code>app/models/traffic_light.py</code></p>
+<p><strong>Masalah:</strong> Model <code>TrafficLight</code> (di models/traffic_light.py) memiliki field <code>phases: list[TLPhase]</code>, <code>algorithm_fn</code>, dll. Tapi tidak ada kode yang membaca data TL dari SUMO (ID, fase, durasi, dll) dan mengisi objek <code>TrafficLight</code>.</p>
+<p><strong>Dampak:</strong> Model traffic light hanya sebagai definisi kelas, tidak pernah diinstansiasi. Semua algoritma yang menerima parameter <code>tl: TrafficLight</code> akan menerima objek kosong.</p>
+<p><strong>Fix:</strong> Buat method <code>_build_traffic_light(tl_id)</code> di sim_controller yang:
+<pre>def _build_traffic_light(self, tl_id):
+    import traci
+    logic = traci.trafficlight.getCompleteRedYellowGreenDefinition(tl_id)
+    phases = []
+    for p in logic[0].phases:
+        phases.append(TLPhase(duration=p.duration, state=p.state))
+    return TrafficLight(
+        id=tl_id,
+        current_phase_idx=traci.trafficlight.getPhase(tl_id),
+        phases=phases,
+        cycle_time=sum(p.duration for p in phases),
+    )</pre></p>
+</div>
+
+<div class="critical">
+<h3>🔴 C3: Apply Button Tidak Berfungsi</h3>
+<p><strong>Lokasi:</strong> <code>app/gui/config_panel.py:122-125</code></p>
+<p><strong>Masalah:</strong> Method <code>_on_apply()</code> hanya menulis log <code>"Config applied: {get_config()}"</code>. Tidak ada perubahan yang diterapkan ke sim_controller, tidak ada sinyal yang dikirim.</p>
+<p><strong>Dampak:</strong> User bisa mengubah setting di panel config, tapi tidak ada efek apapun.</p>
+<p><strong>Fix:</strong>
+<pre>def _on_apply(self):
+    cfg = self.get_config()
+    if self.sim_controller and self.sim_controller.is_running:
+        self.sim_controller.set_algorithm(cfg["algorithm"])
+        self.sim_controller.set_flow_rate(cfg["flow_rate"])
+    # Emit signal ke main_window
+    self.config_applied.emit(cfg)</pre></p>
+</div>
+
+<!-- SECTION 2 -->
+<h2 id="s2" class="pagebreak">2. P1 Engine — Issues & Optimization</h2>
+
+<h3>2.1 File: app/engine/tl_algorithms.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td><strong>Dead code:</strong> ALGORITHM_MAP dan get_controller() tidak pernah diimport/dipanggil</td><td><span class="tag tag-critical">CRITICAL</span></td><td>143-152</td></tr>
+  <tr><td>2</td><td><code>actuated_controller</code> dan <code>max_pressure_controller</code> pake <code>import traci as tc</code> langsung, mengabaikan parameter wrapper</td><td><span class="tag tag-high">HIGH</span></td><td>47, 83</td></tr>
+  <tr><td>3</td><td>Max-Pressure pake edge ID palsu <code>"edge_{i}"</code> — tidak cocok dengan ID edge asli SUMO</td><td><span class="tag tag-high">HIGH</span></td><td>96-97</td></tr>
+  <tr><td>4</td><td>Max-Pressure tidak punya minimum green time — bisa gonta-ganti fase tiap detik</td><td><span class="tag tag-medium">MEDIUM</span></td><td>101-105</td></tr>
+  <tr><td>5</td><td>Green Wave hardcoded untuk 4 TL — tidak scalable</td><td><span class="tag tag-medium">MEDIUM</span></td><td>110-140</td></tr>
+  <tr><td>6</td><td>Dokumentasi fungsi dan implementasi tidak konsisten (parameter <code>traci</code> vs <code>traci_client</code>)</td><td><span class="tag tag-low">LOW</span></td><td>5</td></tr>
+</table>
+
+<h3>2.2 File: app/engine/sim_controller.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td><strong>Tidak import/memanggil tl_algorithms</strong> — TL hanya default SUMO</td><td><span class="tag tag-critical">CRITICAL</span></td><td>seluruh file</td></tr>
+  <tr><td>2</td><td>Tidak ada method <code>_build_traffic_light()</code> untuk mengisi model dari data SUMO</td><td><span class="tag tag-critical">CRITICAL</span></td><td>-</td></tr>
+  <tr><td>3</td><td>Sleep time tidak akurat — <code>1.0/(30*speed)</code> tidak memperhitungkan waktu komputasi</td><td><span class="tag tag-medium">MEDIUM</span></td><td>104</td></tr>
+  <tr><td>4</td><td>Error di <code>_run_loop</code> hanya di-log, tidak dikirim ke GUI (user tidak tahu ada error)</td><td><span class="tag tag-medium">MEDIUM</span></td><td>98-101</td></tr>
+  <tr><td>5</td><td>Tidak ada method <code>set_algorithm()</code>, <code>set_flow_rate()</code> — Config Panel tidak bisa mengubah apapun</td><td><span class="tag tag-critical">CRITICAL</span></td><td>-</td></tr>
+</table>
+
+<h3>2.3 File: app/engine/traci_client.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td><strong>Missing method:</strong> <code>get_tl_state(tl_id)</code> — map_viewer terpaksa pake <code>import traci</code> langsung</td><td><span class="tag tag-high">HIGH</span></td><td>-</td></tr>
+  <tr><td>2</td><td><strong>Missing method:</strong> <code>get_tl_phases(tl_id)</code> — ambil definisi fase dari SUMO</td><td><span class="tag tag-high">HIGH</span></td><td>-</td></tr>
+  <tr><td>3</td><td>Subscribe edges tidak punya method retrieval — data subscription tidak pernah dibaca</td><td><span class="tag tag-medium">MEDIUM</span></td><td>152-161</td></tr>
+  <tr><td>4</td><td><code>connect()</code> menggunakan <code>traci.init()</code> — lebih baik <code>traci.connect()</code></td><td><span class="tag tag-low">LOW</span></td><td>169-182</td></tr>
+</table>
+
+<h3>2.4 File: app/models/ (network.py, vehicle.py, traffic_light.py, scenario.py)</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>File</th></tr>
+  <tr><td>1</td><td><code>TrafficLightLogic</code> dan <code>TrafficLight</code> tidak pernah diinstansiasi oleh siapapun</td><td><span class="tag tag-critical">CRITICAL</span></td><td>traffic_light.py, network.py</td></tr>
+  <tr><td>2</td><td><code>Scenario.generate_sumo_config()</code> tidak pernah dipanggil</td><td><span class="tag tag-medium">MEDIUM</span></td><td>scenario.py:68-87</td></tr>
+  <tr><td>3</td><td><code>Vehicle.color</code> default equality check fragile — bisa ke-overwrite</td><td><span class="tag tag-low">LOW</span></td><td>vehicle.py:43</td></tr>
+  <tr><td>4</td><td><code>app/models/__init__.py</code> tidak ada — package tidak konsisten</td><td><span class="tag tag-low">LOW</span></td><td>-</td></tr>
+</table>
+
+<h3>2.5 File: app/engine/osm_importer.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td>Download OSM tanpa User-Agent — bisa ditolak server</td><td><span class="tag tag-medium">MEDIUM</span></td><td>70</td></tr>
+  <tr><td>2</td><td>Error message terpotong 500 char — debug sulit</td><td><span class="tag tag-low">LOW</span></td><td>52</td></tr>
+  <tr><td>3</td><td><code>import urllib.request</code> di dalam method (bukan top-level)</td><td><span class="tag tag-low">LOW</span></td><td>64</td></tr>
+</table>
+
+<h3>2.6 Optimization — P1</h3>
+<div class="improve">
+<ul>
+  <li><strong>Batch vehicle updates:</strong> Ganti N+1 TraCI calls (get_vehicle_ids → get_vehicle per ID) dengan subscription. Subscribe vehicle variables di awal, baca bulk per step.</li>
+  <li><strong>Caching:</strong> Cache TL phases dan edge lists yang jarang berubah. Jangan query tiap step.</li>
+  <li><strong>Async support:</strong> sim_controller pake threading, tapi bisa ditingkatkan pake asyncio/QThread biar lebih terintegrasi dengan Qt event loop.</li>
+</ul>
+</div>
+
+<!-- SECTION 3 -->
+<h2 id="s3" class="pagebreak">3. P2 Backend — Issues & Optimization</h2>
+
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>File:Baris</th></tr>
+  <tr><td>1</td><td><strong>MetricsStorage tidak terhubung</strong> — Collector/Storage/Aggregator ada tapi tidak dipakai oleh GUI</td><td><span class="tag tag-high">HIGH</span></td><td>metrics/storage.py</td></tr>
+  <tr><td>2</td><td><strong>Tidak ada endpoint/trigger simpan data</strong> — Setelah simulasi selesai, data metrics tidak disimpan ke SQLite</td><td><span class="tag tag-high">HIGH</span></td><td>main_window.py</td></tr>
+  <tr><td>3</td><td>Logger hanya console output — tidak ada file handler</td><td><span class="tag tag-medium">MEDIUM</span></td><td>utils/logger.py</td></tr>
+  <tr><td>4</td><td>Localization <code>t()</code> function tidak dipanggil oleh siapapun — semua GUI masih hardcoded</td><td><span class="tag tag-medium">MEDIUM</span></td><td>utils/localization.py</td></tr>
+  <tr><td>5</td><td>Tidak ada tes unit — folder tests/ kosong</td><td><span class="tag tag-high">HIGH</span></td><td>tests/</td></tr>
+  <tr><td>6</td><td>Config default disimpan di <code>~/.tls/config.json</code> — perlu dokumentasi</td><td><span class="tag tag-low">LOW</span></td><td>utils/config.py</td></tr>
+</table>
+
+<div class="improve">
+<h4>Optimization — P2</h4>
+<ul>
+  <li><strong>Hubungkan Metrics ke Dashboard:</strong> Setelah sim selesai, simpan data dari <code>dashboard._data</code> ke <code>MetricsStorage</code> via <code>save_samples()</code>.</li>
+  <li><strong>Export otomatis:</strong> Tawarkan export CSV/JSON otomatis setelah sim selesai.</li>
+  <li><strong>Logging ke file:</strong> Tambah file handler di logger.py (rotating file handler).</li>
+  <li><strong>Tulis unit tests:</strong> Minimal test untuk Config, Localization, MetricsAggregator, MetricsStorage.</li>
+</ul>
+</div>
+
+<!-- SECTION 4 -->
+<h2 id="s4" class="pagebreak">4. P3 GUI — Issues & Optimization</h2>
+
+<h3>4.1 File: app/gui/config_panel.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td><strong>Apply button tidak berfungsi</strong> — hanya log</td><td><span class="tag tag-critical">CRITICAL</span></td><td>122-125</td></tr>
+  <tr><td>2</td><td><strong>Heatmap checkbox tidak berfungsi</strong> — <code>_on_heatmap()</code> hanya <code>pass</code></td><td><span class="tag tag-medium">MEDIUM</span></td><td>118-120</td></tr>
+  <tr><td>3</td><td>Config tidak punya signal — tidak bisa komunikasi ke parent window</td><td><span class="tag tag-high">HIGH</span></td><td>-</td></tr>
+  <tr><td>4</td><td><code>get_config()</code> tidak pernah dipanggil oleh siapapun</td><td><span class="tag tag-medium">MEDIUM</span></td><td>104-116</td></tr>
+</table>
+
+<h3>4.2 File: app/gui/main_window.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td><strong>Scenario New/Open/Save tidak menyimpan apapun</strong> — hanya buka dialog lalu selesai</td><td><span class="tag tag-high">HIGH</span></td><td>170-181</td></tr>
+  <tr><td>2</td><td><code>_on_sim_step()</code> berhenti mengupdate dashboard jika vehicles = 0 (meskipun sementara)</td><td><span class="tag tag-medium">MEDIUM</span></td><td>111-112</td></tr>
+  <tr><td>3</td><td>Listener leak: <code>set_sim_controller()</code> dipanggil lagi tanpa cleanup listener lama</td><td><span class="tag tag-medium">MEDIUM</span></td><td>99-104</td></tr>
+  <tr><td>4</td><td>"Import OSM" tidak dinonaktifkan pas simulasi jalan — bisa corrupt state</td><td><span class="tag tag-low">LOW</span></td><td>43</td></tr>
+  <tr><td>5</td><td>Export CSV/JSON hanya export data dashboard — tidak ada data historis</td><td><span class="tag tag-low">LOW</span></td><td>124-136</td></tr>
+</table>
+
+<h3>4.3 File: app/gui/map_viewer.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td><strong>TL rendering hanya detek 3 state</strong> — SUMO punya 8+ state character (r, R, y, Y, g, G, u, O, o)</td><td><span class="tag tag-medium">MEDIUM</span></td><td>241-249</td></tr>
+  <tr><td>2</td><td><strong>Vehicle rendering N+1 TraCI calls</strong> — 1 call dapetin ID list + 1 call per vehicle</td><td><span class="tag tag-high">HIGH</span></td><td>141-178</td></tr>
+  <tr><td>3</td><td><code>import traci</code> langsung di <code>_update_view()</code> — break abstraction</td><td><span class="tag tag-high">HIGH</span></td><td>188-193</td></tr>
+  <tr><td>4</td><td>Multi-lane road cuma digambar 1 lane</td><td><span class="tag tag-low">LOW</span></td><td>78-79</td></tr>
+  <tr><td>5</td><td><code>_offset</code> diset tapi tidak pernah dipakai</td><td><span class="tag tag-low">LOW</span></td><td>129</td></tr>
+</table>
+
+<h3>4.4 File: app/gui/dashboard.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>Baris</th></tr>
+  <tr><td>1</td><td>Data murni di memori — tidak nyambung ke MetricsStorage</td><td><span class="tag tag-high">HIGH</span></td><td>-</td></tr>
+  <tr><td>2</td><td><code>set_sim_controller()</code> menyimpan controller tapi tidak pernah dipakai</td><td><span class="tag tag-medium">MEDIUM</span></td><td>74-75</td></tr>
+  <tr><td>3</td><td><code>reset()</code> tidak pernah dipanggil</td><td><span class="tag tag-medium">MEDIUM</span></td><td>100-103</td></tr>
+  <tr><td>4</td><td>Data terbatas 500 sample terakhir — untuk sim 30 menit (1800 step) hanya 28%</td><td><span class="tag tag-low">LOW</span></td><td>85-88</td></tr>
+</table>
+
+<h3>4.5 File: app/gui/controls.py, settings_dialog.py, scenario_dialog.py</h3>
+<table>
+  <tr><th>#</th><th>Issue</th><th>Severity</th><th>File</th></tr>
+  <tr><td>1</td><td>Override Settings tidak dipropagasi — SUMO path diganti saat sim berjalan tidak berefek</td><td><span class="tag tag-medium">MEDIUM</span></td><td>settings_dialog.py</td></tr>
+  <tr><td>2</td><td>Scenario dialog tidak validasi input — network path bisa kosong/asala</td><td><span class="tag tag-medium">MEDIUM</span></td><td>scenario_dialog.py</td></tr>
+  <tr><td>3</td><td>Play/Pause UX ambigu — button label selalu "Play" meskipun beda fungsi</td><td><span class="tag tag-low">LOW</span></td><td>controls.py</td></tr>
+</table>
+
+<div class="improve">
+<h4>Optimization — P3</h4>
+<ul>
+  <li><strong>Vehicle rendering batch:</strong> Ganti loop N+1 dengan subscription. Subscribe vehicle.position, vehicle.angle, vehicle.speed, vehicle.type untuk semua vehicle ID dalam 1 call.</li>
+  <li><strong>Viewport culling:</strong> Hanya render vehicle yang visible di viewport (screen bounds checking).</li>
+  <li><strong>LOD (Level of Detail):</strong> Zoom out jauh → render vehicle sebagai titik (bukan rectangle), zoom in → detail penuh.</li>
+  <li><strong>Cache network rendering:</strong> Setelah network di-load, jangan parse XML setiap kali. Simpan dalam struktur data efisien.</li>
+  <li><strong>Dark/Light theme:</strong> Dukung switch theme (udah ada di config, belum diimplement).</li>
+</ul>
+</div>
+
+<!-- SECTION 5 -->
+<h2 id="s5" class="pagebreak">5. Performance Optimization</h2>
+
+<h3>5.1 TraCI Bottleneck</h3>
+<p>Masalah utama performa adalah <strong>N+1 pattern</strong> di map_viewer:</p>
+<pre>veh_ids = tc.get_vehicle_ids()       # 1 TraCI call
+for vid in veh_ids:
+    v = tc.get_vehicle(vid)           # N TraCI calls
+    # render...</pre>
+<p>Untuk 300 kendaraan = 301 TraCI calls per frame (setiap 33ms). Solusi: <strong>SUBSCRIBE</strong>.</p>
+<div class="improve">
+<pre># TraCIClient.subscribe_vehicles() — panggil sekali di awal
+traci.vehicle.subscribeContext(
+    veh_id, traci.constants.CMD_GET_VEHICLE_VARIABLE,
+    1000,  # range
+    [traci.constants.VAR_POSITION, traci.constants.VAR_ANGLE,
+     traci.constants.VAR_SPEED, traci.constants.VAR_TYPE]
+)
+
+# Di _update_view — 1 call dapetin semua
+vehicle_data = traci.vehicle.getContextSubscriptionResults(veh_id)</pre>
+</div>
+
+<h3>5.2 TL Phase Caching</h3>
+<p>Definisi fase TL jarang berubah. Cache di awal, update hanya saat algo berubah.</p>
+
+<h3>5.3 Threading Model</h3>
+<ul>
+  <li>SimController: thread daemon ✅</li>
+  <li>TraCI calls dari thread berbeda — perlu lock/queue untuk akses data aman</li>
+  <li>Gunakan QThread / QRunnable untuk integrasi lebih baik dengan Qt event loop</li>
+</ul>
+
+<h3>5.4 Memory</h3>
+<ul>
+  <li>Dashboard data unlimited — perlu trimming atau pindah ke SQLite</li>
+  <li>Vehicle items di QGraphicsScene — hapus yang sudah keluar, reuse object yang ada (sudah ✅)</li>
+  <li>Network items — sekali load, jangan parsing ulang</li>
+</ul>
+
+<!-- SECTION 6 -->
+<h2 id="s6" class="pagebreak">6. Recommended Features to Add</h2>
+
+<h3>6.1 Fitur Prioritas Tinggi</h3>
+<table>
+  <tr><th>Fitur</th><th>Deskripsi</th><th>PIC</th><th>Estimasi</th></tr>
+  <tr><td><strong>TL Algorithm Integration</strong></td><td>Wire algorithms ke sim_controller + toggle via Config Panel</td><td>P1</td><td>2-3 hari</td></tr>
+  <tr><td><strong>Apply Config</strong></td><td>Apply button benar-benar mengubah parameter sim</td><td>P3</td><td>1 hari</td></tr>
+  <tr><td><strong>Scenario Save/Load</strong></td><td>Simpan dan buka scenario dari file/database</td><td>P2+P3</td><td>2 hari</td></tr>
+  <tr><td><strong>Data Persistence</strong></td><td>Simpan metrics ke SQLite setelah sim selesai</td><td>P2</td><td>1 hari</td></tr>
+  <tr><td><strong>Unit Tests</strong></td><td>Tulis test untuk Config, Localization, Metrics, Models, TL</td><td>P1+P2</td><td>2 hari</td></tr>
+</table>
+
+<h3>6.2 Fitur Prioritas Sedang</h3>
+<table>
+  <tr><th>Fitur</th><th>Deskripsi</th><th>PIC</th></tr>
+  <tr><td>Multi-vehicle rendering</td><td>Tampilkan motor, truck, bus dengan bentuk/icon berbeda di peta</td><td>P3</td></tr>
+  <tr><td>Heatmap congestion</td><td>Tampilkan overlay warna pada jalan berdasarkan kepadatan</td><td>P3</td></tr>
+  <tr><td>Real-time TL state display</td><td>Tooltip/status bar nampilin fase TL yang aktif</td><td>P3</td></tr>
+  <tr><td>Keyboard shortcuts</td><td>Space=play/pause, R=reset, +/- speed, S=step</td><td>P3</td></tr>
+  <tr><td>Localization</td><td>Ganti semua string hardcoded dengan t() call + ID/EN</td><td>P3</td></tr>
+  <tr><td>Export dashboard chart as image</td><td>Right-click → save chart as PNG</td><td>P3</td></tr>
+  <tr><td>SUMO process health check</td><td>Detect if SUMO crash, tampilkan error ke user</td><td>P1</td></tr>
+  <tr><td>Network info panel</td><td>Tampil info: jumlah edge, TL, kendaraan maks, dll</td><td>P3</td></tr>
+  <tr><td>File logging</td><td>Log ke file + console (rotating file handler)</td><td>P2</td></tr>
+</table>
+
+<h3>6.3 Fitur Nice-to-Have</h3>
+<table>
+  <tr><th>Fitur</th><th>Deskripsi</th></tr>
+  <tr><td>Multi-intersection coordination</td><td>Green Wave antar TL berurutan bisa di-define user</td></tr>
+  <tr><td>Vehicle trajectory playback</td><td>Rekam trajektori, putar ulang kapan aja</td></tr>
+  <tr><td>OSM download built-in</td><td>Input koordinat → download OSM langsung dari app</td></tr>
+  <tr><td>Dark/light theme toggle</td><td>Switch tema dari Settings dialog</td></tr>
+  <tr><td>Multi-run comparison</td><td>Jalankan beberapa skenario, bandingkan hasil metrics</td></tr>
+  <tr><td>Real-time traffic data</td><td>Integrasi API lalu lintas real (kalo ada)</td></tr>
+  <tr><td>3D visualization</td><td>Mungkin pake OpenGL/Qt3D untuk tampilan 3D</td></tr>
+  <tr><td>Installer packaging</td><td>Build script tinggal jalan, hasil .exe/.AppImage siap distribusi</td></tr>
+</table>
+
+<!-- SECTION 7 -->
+<h2 id="s7" class="pagebreak">7. File-by-File Checklist</h2>
+
+<table>
+  <tr><th>File</th><th>PIC</th><th>Status</th><th>Action Needed</th></tr>
+  <tr><td><code>app/engine/sim_controller.py</code></td><td>P1</td><td><span class="tag tag-critical">CRITICAL</span></td><td>Wire TL algorithms, add _build_traffic_light, add set_algorithm/set_flow_rate</td></tr>
+  <tr><td><code>app/engine/tl_algorithms.py</code></td><td>P1</td><td><span class="tag tag-critical">CRITICAL</span></td><td>Fix actuated/max_pressure imports, fix edge ID lookup, add min green</td></tr>
+  <tr><td><code>app/engine/traci_client.py</code></td><td>P1</td><td><span class="tag tag-high">HIGH</span></td><td>Add get_tl_state(), get_tl_phases(), subscribe_vehicles(), batch vehicle retrieval</td></tr>
+  <tr><td><code>app/engine/osm_importer.py</code></td><td>P1</td><td><span class="tag tag-medium">MEDIUM</span></td><td>Add User-Agent, timeout, better error reporting</td></tr>
+  <tr><td><code>app/models/*.py</code></td><td>P1</td><td><span class="tag tag-medium">MEDIUM</span></td><td>Add __init__.py, connect models to real data flow</td></tr>
+  <tr><td><code>app/utils/config.py</code></td><td>P2</td><td><span class="tag tag-low">LOW</span></td><td>Add documentation for config file location</td></tr>
+  <tr><td><code>app/utils/logger.py</code></td><td>P2</td><td><span class="tag tag-medium">MEDIUM</span></td><td>Add file handler, rotating logs</td></tr>
+  <tr><td><code>app/utils/localization.py</code></td><td>P2</td><td><span class="tag tag-medium">MEDIUM</span></td><td>Ensure all GUI calls t() - currently no usage</td></tr>
+  <tr><td><code>app/metrics/*.py</code></td><td>P2</td><td><span class="tag tag-high">HIGH</span></td><td>Connect to dashboard, auto-save after simulation ends</td></tr>
+  <tr><td><code>app/gui/main_window.py</code></td><td>P3</td><td><span class="tag tag-high">HIGH</span></td><td>Fix Scenario, integrate config_panel changes, fix dashboard pause bug</td></tr>
+  <tr><td><code>app/gui/config_panel.py</code></td><td>P3</td><td><span class="tag tag-critical">CRITICAL</span></td><td>Make Apply functional, add signal, fix heatmap toggle</td></tr>
+  <tr><td><code>app/gui/map_viewer.py</code></td><td>P3</td><td><span class="tag tag-high">HIGH</span></td><td>Fix TL states, batch vehicle render, remove direct traci import</td></tr>
+  <tr><td><code>app/gui/dashboard.py</code></td><td>P3</td><td><span class="tag tag-medium">MEDIUM</span></td><td>Connect to MetricsStorage, call reset() properly</td></tr>
+  <tr><td><code>app/gui/controls.py</code></td><td>P3</td><td><span class="tag tag-low">LOW</span></td><td>Improve Play/Pause UX, fix vehicle count label</td></tr>
+  <tr><td><code>app/gui/scenario_dialog.py</code></td><td>P3</td><td><span class="tag tag-medium">MEDIUM</span></td><td>Add validation, actual file save/load</td></tr>
+  <tr><td><code>app/gui/settings_dialog.py</code></td><td>P3</td><td><span class="tag tag-medium">MEDIUM</span></td><td>Propagate changes, trigger reload on language change</td></tr>
+  <tr><td><code>tests/*</code></td><td>All</td><td><span class="tag tag-critical">CRITICAL</span></td><td>Write unit tests for all modules</td></tr>
+</table>
+
+<h3>Prioritas Perbaikan</h3>
+<div class="critical">
+<h4>🔴 Minggu 1 (Critical Path)</h4>
+<ol>
+  <li>Wire TL algorithms ke sim_controller (P1) — tanpa ini app tidak berguna</li>
+  <li>Buat Apply button berfungsi (P3) — tanpa ini config panel hanya pajangan</li>
+  <li>Tambah get_tl_state/get_tl_phases di TraCIClient (P1) — dependency untuk point 1 & 4</li>
+  <li>Fix TL rendering di map_viewer (P3) — biar lampu merah realtime sesuai state</li>
+</ol>
+</div>
+
+<div class="warning">
+<h4>🟡 Minggu 2 (High Priority)</h4>
+<ol>
+  <li>Hubungkan Metrics ke Storage (P2)</li>
+  <li>Scenario Save/Load beneran (P2+P3)</li>
+  <li>Batch vehicle rendering (P3+P1)</li>
+  <li>Unit tests (All)</li>
+</ol>
+</div>
+
+<div class="improve">
+<h4>🟢 Minggu 3+ (Medium/Low)</h4>
+<ol>
+  <li>Localization (P3) — ganti hardcoded string ke t()</li>
+  <li>File logging (P2)</li>
+  <li>Heatmap, keyboard shortcuts, network info panel (P3)</li>
+  <li>Dark/light theme, scenario comparison, installer (All)</li>
+</ol>
+</div>
+
+<hr>
+<footer>
+Traffic Light Simulation v1.0 | Audit Report | Open Source (GPL v2) | SUMO Engine
+</footer>
+
+</body>
+</html>
