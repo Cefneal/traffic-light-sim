@@ -530,7 +530,12 @@ class MapViewer(QGraphicsView):
             for tid in tl_ids:
                 state = tc.get_cached_tl_state(tid)
                 if state:
-                    ch = state[0]
+                    if 'g' in state.lower():
+                        ch = 'g'
+                    elif 'y' in state.lower():
+                        ch = 'y'
+                    else:
+                        ch = 'r'
                     self._update_tl(tid, ch)
 
         except Exception:
