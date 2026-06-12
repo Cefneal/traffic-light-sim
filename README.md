@@ -8,71 +8,108 @@ Aplikasi desktop simulasi lalu lintas skala kota dengan **SUMO engine** + **Pyth
 - **4 algoritma TL**: Fixed-Time, Actuated, Green Wave, Max-Pressure
 - **Dashboard real-time**: Grafik kecepatan rata-rata, waktu tunggu, throughput, antrian
 - **Import OSM**: Download dari OpenStreetMap → langsung bisa simulate
-- **Multi-platform**: Linux & Windows
+- **Multi-platform**: Linux, Windows, macOS
 
-## Instalasi
+## ⚡ Cara Cepat (Pre-built executable)
 
-### 1. Install SUMO
+> **Syarat**: SUMO harus sudah terinstall.
 
-**Linux (Ubuntu/Debian):**
+1. Download executable dari [Releases](https://github.com/Cefneal/traffic-light-sim/releases)
+2. Extract & jalankan
+
+Atau build sendiri (lihat di bawah).
+
+---
+
+## Instalasi SUMO
+
+Aplikasi **membutuhkan SUMO** — engine simulasi lalu lintas.
+
+### Linux (Ubuntu/Debian)
 ```bash
 sudo apt install sumo sumo-tools
 ```
 
-**Windows:**
-Download installer dari https://sumo.dlr.de/docs/Downloads.php (pilih `sumo-1.20.0.msi` atau versi terbaru).
-Pastikan SUMO binary sudah ada di PATH (bisa diatur via menu File > Settings).
+### Windows
+1. Download installer dari [SUMO Downloads](https://sumo.dlr.de/docs/Downloads.php) (pilih versi **1.20.0** atau lebih baru)
+2. Jalankan installer — **pastikan centang "Add SUMO to PATH"**
+3. Atau: set environment variable `SUMO_HOME` ke folder instalasi SUMO
 
-### 2. Clone repo & setup
+### macOS
+```bash
+brew install sumo
+```
 
+### Verifikasi
+```bash
+sumo --version
+```
+Harus muncul versi SUMO (minimal 1.20.x).
+
+---
+
+## Cara 1: Jalankan dari source (Python)
+
+### Setup
 ```bash
 git clone https://github.com/Cefneal/traffic-light-sim.git
 cd traffic-light-sim
+
+# Linux / macOS
 bash setup.sh
+
+# Windows
+setup.bat
 ```
 
-Atau manual:
-```bash
-cd traffic-light-sim
-python3 -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 3. Jalankan
-
+### Jalankan
 ```bash
 python -m app.main
 ```
 
+---
+
+## Cara 2: Build executable sendiri
+
+### Linux / macOS
+```bash
+bash setup.sh --build
+./dist/tls
+```
+
+### Windows
+```cmd
+pip install pyinstaller
+pyinstaller tls.spec --clean -y
+dist\tls\tls.exe
+```
+
+File executable ada di folder `dist/`.
+
+---
+
 ## Cara Pakai
 
-1. Pilih map dari dropdown di toolbar (Pamulang / Silicon Valley / Tokyo)
-2. Atur algoritma TL di panel Configuration (Fixed-Time / Actuated / Green Wave)
-3. Klik **▶ Play** — simulation berjalan
-4. Lihat dashboard real-time di panel kanan
-5. Export data CSV/JSON via menu File
+1. Pilih map dari dropdown (Pamulang / Silicon Valley / Tokyo)
+2. Atur algoritma TL di panel Configuration
+3. Klik **▶ Play** — simulasi berjalan
+4. Dashboard real-time di panel kanan
+5. Export CSV/JSON via File → Export
 
 ### Map Custom
-
-1. Download OSM dari https://www.openstreetmap.org/export
-2. Buka app → File → Import OSM → pilih file .osm
+1. Download OSM dari [OpenStreetMap](https://www.openstreetmap.org/export)
+2. File → Import OSM → pilih file .osm
 3. Atau: `bash scripts/siapkan_map.sh /path/map.osm`
+
+---
 
 ## Struktur Proyek
 
 ```
-app/                    Kode utama aplikasi
-├── main.py             Entry point
-├── engine/             Engine (P1): TraCI client, TL algorithms, OSM importer
-├── gui/                GUI (P3): main window, map viewer, dashboard, controls
-├── metrics/            Metrics (P2): collector, storage SQLite, aggregator
-├── models/             Data models: traffic light, vehicle, network, scenario
-└── utils/              Utilities (P2): config, logger, localization
-sim/                    Data simulasi (map per folder)
-docs/                   Dokumentasi
-scripts/                Script utilitas
-tests/                  Unit tests
+app/         Kode utama (engine + GUI + metrics + models)
+sim/         Data simulasi (map per folder)
+scripts/     Script utilitas
+tests/       Unit tests
 ```
 
 ## Tech Stack
@@ -83,7 +120,6 @@ tests/                  Unit tests
 | Charts | pyqtgraph |
 | Engine | SUMO (via TraCI) |
 | Database | SQLite |
-| Report | weasyprint |
 
 ## Troubleshooting
 
@@ -91,8 +127,8 @@ tests/                  Unit tests
 |---------|--------|
 | `SUMO not found` | Install SUMO, set path via File > Settings |
 | `Port 8813 in use` | Matikan proses SUMO lain, restart app |
-| `PyQt6 not available` | `pip install PyQt6` / `bash setup.sh` |
-| Map tidak muncul di dropdown | Jalankan `scripts/siapkan_map.sh` dulu |
+| TL tidak muncul di map | Beberapa TL mungkin tidak punya posisi di net.xml — ini normal |
+| Map tidak muncul di dropdown | `bash scripts/siapkan_map.sh` dulu |
 
 ## License
 
