@@ -2,8 +2,6 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-dist/
-build/
 *.egg
 
 # Virtual environment
@@ -11,9 +9,9 @@ venv/
 .env/
 .venv/
 
-# PyInstaller
-*.spec
+# Build artifacts
 dist/
+build/
 
 # IDE
 .vscode/

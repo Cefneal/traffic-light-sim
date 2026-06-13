@@ -143,7 +143,7 @@ class DashboardPanel(QWidget):
 
     def export_csv(self, path: str):
         try:
-            with open(path, "w", newline="") as f:
+            with open(path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow([
                     "time", "speed", "wait_time", "throughput",
@@ -174,7 +174,7 @@ class DashboardPanel(QWidget):
                 "fuel": self._data["fuel"],
                 "co2": self._data["co2"],
             }
-            with open(path, "w") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             self.logger.info(f"Exported JSON: {path}")
         except Exception as e:

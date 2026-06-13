@@ -48,7 +48,7 @@ class Config:
         config_path = self._get_config_path()
         if config_path.exists():
             try:
-                with open(config_path) as f:
+                with open(config_path, encoding="utf-8") as f:
                     user_config = json.load(f)
                 self._deep_merge(self._data, user_config)
             except (json.JSONDecodeError, OSError):
@@ -91,7 +91,7 @@ class Config:
     def _save(self):
         config_path = self._get_config_path()
         self._get_config_dir().mkdir(parents=True, exist_ok=True)
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, indent=2)
 
     def get_sumo_binary(self) -> str:
