@@ -14,10 +14,10 @@ Aplikasi desktop simulasi lalu lintas skala kota dengan **SUMO engine** + **Pyth
 
 > **Syarat**: SUMO harus sudah terinstall.
 
-1. Download executable dari [Releases](https://github.com/Cefneal/traffic-light-sim/releases)
-2. Extract & jalankan
+1. Download dari [Releases](https://github.com/Cefneal/traffic-light-sim/releases)
+2. Extract & jalankan `tls` (Linux) / `tls.exe` (Windows)
 
-Atau build sendiri (lihat di bawah).
+Pre-built executable di-build otomatis via GitHub Actions tiap push ke `main`.
 
 ---
 
@@ -46,6 +46,8 @@ sumo --version
 ```
 Harus muncul versi SUMO (minimal 1.20.x).
 
+> **Catatan Python**: Aplikasi ini kompatibel dengan Python 3.10–3.13. Python 3.14 **belum didukung penuh** karena beberapa library (PyQt6) belum siap wheels-nya.
+
 ---
 
 ## Cara 1: Jalankan dari source (Python)
@@ -58,13 +60,24 @@ cd traffic-light-sim
 # Linux / macOS
 bash setup.sh
 
-# Windows
+# Windows (CMD)
 setup.bat
+
+# Windows (PowerShell — recommended)
+.\setup.ps1
 ```
 
 ### Jalankan
 ```bash
+# Linux / macOS
+source venv/bin/activate
 python -m app.main
+
+# Windows (CMD)
+venv\Scripts\activate & python -m app.main
+
+# Windows (PowerShell)
+.\venv\Scripts\Activate.ps1 ; python -m app.main
 ```
 
 ---
@@ -83,6 +96,8 @@ pip install pyinstaller
 pyinstaller tls.spec --clean -y
 dist\tls\tls.exe
 ```
+
+Atau via GitHub Actions — push tag `v*` ke repo, workflow otomatis build + upload ke Releases.
 
 File executable ada di folder `dist/`.
 
@@ -125,10 +140,12 @@ tests/       Unit tests
 
 | Problem | Solusi |
 |---------|--------|
-| `SUMO not found` | Install SUMO, set path via File > Settings |
+| `SUMO not found` | Install SUMO, set `SUMO_HOME` env var, atau set path via File > Settings |
+| `PyQt6 not available` | Aktifkan virtual environment dulu: `venv\Scripts\Activate.ps1` atau `source venv/bin/activate` |
 | `Port 8813 in use` | Matikan proses SUMO lain, restart app |
 | TL tidak muncul di map | Beberapa TL mungkin tidak punya posisi di net.xml — ini normal |
 | Map tidak muncul di dropdown | `bash scripts/siapkan_map.sh` dulu |
+| Python 3.14 error | Gunakan Python 3.12/3.13 — 3.14 belum kompatibel dengan PyQt6 |
 
 ## License
 
