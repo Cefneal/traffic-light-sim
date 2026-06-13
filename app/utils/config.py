@@ -98,39 +98,36 @@ class Config:
         path = self.get("sumo", "binary_path")
         if path and os.path.exists(path):
             return path
-        for candidate in [
-            "sumo", "/usr/bin/sumo", "/usr/local/bin/sumo",
-            "C:\\Program Files\\SUMO\\bin\\sumo.exe",
-            "C:\\Program Files (x86)\\SUMO\\bin\\sumo.exe",
-        ]:
-            if os.path.exists(candidate):
-                return candidate
-        # Check if SUMO_HOME is set (common on Windows/macOS)
+        import shutil
+        which = shutil.which("sumo") or shutil.which("sumo.exe")
+        if which:
+            return which
         sumo_home = os.environ.get("SUMO_HOME", "")
         if sumo_home:
-            for exe in ["sumo", "sumo.exe"]:
-                p = os.path.join(sumo_home, "bin", exe)
-                if os.path.exists(p):
-                    return p
+            p = os.path.join(sumo_home, "bin", "sumo.exe")
+            if os.path.exists(p):
+                return p
+            p = os.path.join(sumo_home, "bin", "sumo")
+            if os.path.exists(p):
+                return p
         return "sumo"
 
     def get_netconvert_binary(self) -> str:
         path = self.get("sumo", "netconvert_path")
         if path and os.path.exists(path):
             return path
-        for candidate in [
-            "netconvert", "/usr/bin/netconvert",
-            "C:\\Program Files\\SUMO\\bin\\netconvert.exe",
-            "C:\\Program Files (x86)\\SUMO\\bin\\netconvert.exe",
-        ]:
-            if os.path.exists(candidate):
-                return candidate
+        import shutil
+        which = shutil.which("netconvert") or shutil.which("netconvert.exe")
+        if which:
+            return which
         sumo_home = os.environ.get("SUMO_HOME", "")
         if sumo_home:
-            for exe in ["netconvert", "netconvert.exe"]:
-                p = os.path.join(sumo_home, "bin", exe)
-                if os.path.exists(p):
-                    return p
+            p = os.path.join(sumo_home, "bin", "netconvert.exe")
+            if os.path.exists(p):
+                return p
+            p = os.path.join(sumo_home, "bin", "netconvert")
+            if os.path.exists(p):
+                return p
         return "netconvert"
 
     def get_db_path(self) -> str:
