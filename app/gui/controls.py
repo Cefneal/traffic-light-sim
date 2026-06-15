@@ -189,11 +189,9 @@ class ControlsToolbar(QToolBar):
 
     def _update_status(self):
         if self.sim_controller and self.sim_controller.is_running:
-            t = self.sim_controller.current_time
-            try:
-                remaining = self.sim_controller.traci.get_remaining_vehicles()
-            except Exception:
-                remaining = 0
+            snapshot = self.sim_controller.get_step_snapshot()
+            t = snapshot.time
+            remaining = snapshot.remaining_vehicles
             self.status_label.setText(
                 f"Time: {t:.0f}s | Vehicles: {remaining} | Speed: {self.speed_label.text()}"
             )

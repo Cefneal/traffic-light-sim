@@ -13,8 +13,10 @@ echo "[1/4] Checking Python..."
 PYTHON=""
 for cmd in python3 python; do
     if command -v "$cmd" &>/dev/null; then
-        PY_VER=$("$cmd" --version 2>&1 | grep -Po '\d+\.\d+')
-        if awk "BEGIN {exit !($PY_VER >= 3.10)}"; then
+        PY_VER=$("$cmd" --version 2>&1 | sed -n 's/.*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+        MAJOR=$(echo "$PY_VER" | cut -d. -f1)
+        MINOR=$(echo "$PY_VER" | cut -d. -f2)
+        if [ "$MAJOR" -ge 3 ] && [ "$MINOR" -ge 10 ] 2>/dev/null; then
             PYTHON="$cmd"
             break
         fi
@@ -51,10 +53,13 @@ echo "[3/4] Installing Python dependencies..."
 pip install --upgrade pip -q 2>/dev/null || true
 
 # Core deps
-pip install PyQt6 pyqtgraph traci -q
-if [ $? -ne 0 ]; then
+set +e
+pip install PyQt6 pyqtgraph traci -q 2>/dev/null
+PYQT_OK=$?
+set -e
+if [ "$PYQT_OK" -ne 0 ]; then
     echo "ERROR: Core dependencies failed to install."
-    echo "  Try: pip install PyQt6 pyqtgraph traci"
+    echo "  Try: pip install PyQt6 pyqtgraph traci --only-binary :all:"
     exit 1
 fi
 

@@ -61,6 +61,8 @@ class TraCIClient:
             traci.constants.VAR_LANEPOSITION,
             traci.constants.VAR_WAITING_TIME,
             traci.constants.VAR_TYPE,
+            traci.constants.VAR_FUELCONSUMPTION,
+            traci.constants.VAR_CO2EMISSION,
         ]
 
     def simulation_step(self) -> None:
@@ -186,6 +188,8 @@ class TraCIClient:
                 lane_index=results.get(traci.constants.VAR_LANE_INDEX, 0),
                 lane_position=results.get(traci.constants.VAR_LANEPOSITION, 0.0),
                 waiting_time=results.get(traci.constants.VAR_WAITING_TIME, 0.0),
+                fuel=results.get(traci.constants.VAR_FUELCONSUMPTION, 0.0),
+                co2=results.get(traci.constants.VAR_CO2EMISSION, 0.0),
             )
         except Exception:
             return None
@@ -197,8 +201,15 @@ class TraCIClient:
         except Exception:
             return []
         result: list[Vehicle] = []
+        uncached_ids: list[str] = []
         for vid in all_ids:
             v = self.get_vehicle_cached(vid)
+            if v is not None:
+                result.append(v)
+            else:
+                uncached_ids.append(vid)
+        for vid in uncached_ids:
+            v = self.get_vehicle(vid)
             if v is not None:
                 result.append(v)
         return result
@@ -216,6 +227,14 @@ class TraCIClient:
             }
         except Exception:
             return None
+
+    def get_all_edge_data_cached(self) -> dict[str, dict[str, float]]:
+        result: dict[str, dict[str, float]] = {}
+        for eid in self._subscribed_edges:
+            data = self.get_edge_data_cached(eid)
+            if data:
+                result[eid] = data
+        return result
 
     def clear_subscriptions(self) -> None:
         self._subscribed_edges.clear()
@@ -298,7 +317,7 @@ class TraCIClient:
             for log in logic:
                 for p in log.phases:
                     phases.append({
-                        "index": p.next,
+                        "index": p.index,
                         "state": p.state,
                         "duration": p.duration,
                         "next": p.next,
@@ -398,6 +417,18 @@ class TraCIClient:
         except Exception:
             return 0.0
 
+    def cleanup_subscribed_vehicles(self, active_ids: list[str]) -> None:
+        active_set = set(active_ids)
+        stale = self._subscribed_vehicles - active_set
+        if stale:
+            import traci
+            for vid in stale:
+                try:
+                    traci.vehicle.unsubscribe(vid)
+                except Exception:
+                    pass
+            self._subscribed_vehicles -= stale
+
     def get_total_fuel_consumption(self) -> float:
         if not self._connected:
             return 0.0
@@ -405,7 +436,11 @@ class TraCIClient:
         try:
             total = 0.0
             for vid in traci.vehicle.getIDList():
-                total += traci.vehicle.getFuelConsumption(vid)
+                results = traci.vehicle.getSubscriptionResults(vid)
+                if results:
+                    total += results.get(traci.constants.VAR_FUELCONSUMPTION, 0.0)
+                else:
+                    total += traci.vehicle.getFuelConsumption(vid)
             return total
         except Exception:
             return 0.0
@@ -417,7 +452,11 @@ class TraCIClient:
         try:
             total = 0.0
             for vid in traci.vehicle.getIDList():
-                total += traci.vehicle.getCO2Emission(vid)
+                results = traci.vehicle.getSubscriptionResults(vid)
+                if results:
+                    total += results.get(traci.constants.VAR_CO2EMISSION, 0.0)
+                else:
+                    total += traci.vehicle.getCO2Emission(vid)
             return total
         except Exception:
             return 0.0

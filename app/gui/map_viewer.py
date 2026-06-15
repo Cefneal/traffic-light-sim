@@ -397,15 +397,13 @@ class MapViewer(QGraphicsView):
         if not self.sim_controller or not self.sim_controller.is_running:
             return
 
-        tc = self.sim_controller.traci
-        if not tc or not tc.is_connected:
+        snapshot = self.sim_controller.get_step_snapshot()
+        if not snapshot.vehicles and snapshot.vehicle_count == 0:
             return
 
         try:
-            tc = self.sim_controller.traci
-            vehicles = tc.get_all_vehicles_cached()
-            if not vehicles:
-                vehicles = tc.get_all_vehicles()
+            vehicles = snapshot.vehicles
+            tl_states = snapshot.tl_states
             visible = set()
 
             for v in vehicles:
@@ -421,7 +419,6 @@ class MapViewer(QGraphicsView):
                 }
                 color = color_map.get(v.vehicle_type, self.COLORS["vehicle_car"])
 
-                # Main vehicle rect
                 if vid in self.vehicle_items:
                     item = self.vehicle_items[vid]
                     item.setPos(QPointF(v.x, v.y))
@@ -435,7 +432,6 @@ class MapViewer(QGraphicsView):
                     rect.setZValue(10)
                     self.vehicle_items[vid] = rect
 
-                # ── Trails ──────────────────────────────────────
                 if self.show_trails:
                     if vid not in self._trail_history:
                         self._trail_history[vid] = deque(maxlen=self._TRAIL_LENGTH)
@@ -468,7 +464,6 @@ class MapViewer(QGraphicsView):
                         else:
                             items[i].setVisible(False)
 
-                # ── Vehicle Labels ──────────────────────────────
                 if self.show_vehicle_labels and self._scale > 1.5:
                     speed_text = f"{v.speed:.1f}"
                     if vid in self._vehicle_label_items:
@@ -487,7 +482,6 @@ class MapViewer(QGraphicsView):
                 elif vid in self._vehicle_label_items:
                     self._vehicle_label_items[vid].setVisible(False)
 
-                # ── Headlights ──────────────────────────────────
                 if self.show_headlights:
                     hx = v.x + math.cos(angle_rad) * 3.5
                     hy = v.y + math.sin(angle_rad) * 3.5
@@ -504,7 +498,6 @@ class MapViewer(QGraphicsView):
                         hl.setZValue(11)
                         self._headlight_items[vid] = hl
 
-            # Cleanup vehicles that left
             for vid in list(self.vehicle_items.keys()):
                 if vid not in visible:
                     self._safe_remove_item(self.vehicle_items.pop(vid))
@@ -518,12 +511,10 @@ class MapViewer(QGraphicsView):
                     if vid in self._vehicle_label_items:
                         self._safe_remove_item(self._vehicle_label_items.pop(vid))
 
-            # ── Heatmap (weighted by speed) ─────────────────────
             if self.show_heatmap:
-                self._render_heatmap(tc)
+                self._render_heatmap_from_snapshot(snapshot)
 
-            # Lazy init TL items: use tlLogic positions from net.xml
-            tl_ids = tc.get_tl_ids()
+            tl_ids = list(tl_states.keys())
             if not self._tl_init_done:
                 logger.info(f"TL lazy init: {len(tl_ids)} tl_ids, {len(self._tl_logic_positions)} in net.xml")
                 created = 0
@@ -539,25 +530,20 @@ class MapViewer(QGraphicsView):
                 logger.info(f"TL lazy init done: created {created}/{len(tl_ids)} items")
                 self._tl_init_done = True
 
-            # Re-read tl_ids after init (items now exist with matching keys)
-            tl_ids = tc.get_tl_ids()
-            for tid in tl_ids:
-                state = tc.get_cached_tl_state(tid)
-                if state:
-                    if 'y' in state:
-                        ch = 'y'
-                    elif 'g' in state:
-                        ch = 'g'
-                    elif 'r' in state or 'R' in state:
-                        ch = 'r'
-                    else:
-                        ch = 'r'
-                    self._update_tl(tid, ch)
+            for tid, state in tl_states.items():
+                if 'y' in state:
+                    ch = 'y'
+                elif 'g' in state:
+                    ch = 'g'
+                elif 'r' in state or 'R' in state:
+                    ch = 'r'
+                else:
+                    ch = 'r'
+                self._update_tl(tid, ch)
 
         except Exception:
             pass
 
-        # Adaptive FPS
         elapsed = time.perf_counter() - t0
         target = 1.0 / self._target_fps
         if elapsed > 1.5 * target and self._target_fps > 8:
@@ -571,7 +557,7 @@ class MapViewer(QGraphicsView):
         for item in self.heatmap_items.values():
             item.setVisible(enabled)
 
-    def _render_heatmap(self, tc) -> None:
+    def _render_heatmap_from_snapshot(self, snapshot) -> None:
         for item in self.heatmap_items.values():
             item.setVisible(False)
         if not self.network_items:
@@ -579,7 +565,7 @@ class MapViewer(QGraphicsView):
         for edge_id, line in self.network_items.items():
             if not isinstance(line, QGraphicsLineItem):
                 continue
-            data = tc.get_edge_data_cached(edge_id)
+            data = snapshot.edge_data.get(edge_id)
             if data is None:
                 continue
             vcount = data.get("vehicle_count", 0)

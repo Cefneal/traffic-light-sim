@@ -87,7 +87,7 @@ def max_pressure_controller(
     sim_time: float,
     step_length: float = 1.0,
 ) -> None:
-    """Simplified: pick phase with highest incoming vehicle count."""
+    """Pick phase with highest incoming vehicle count using cached edge subscriptions."""
     if sim_time - tl.last_pressure_calc < tl.pressure_interval:
         return
     tl.last_pressure_calc = sim_time
@@ -100,8 +100,13 @@ def max_pressure_controller(
         for i, phase in enumerate(tl.phases):
             pressure = 0.0
             for eid in edge_ids:
-                count = traci_module.edge.getLastStepVehicleNumber(eid)
-                speed = traci_module.edge.getLastStepMeanSpeed(eid)
+                cached = traci_module.edge.getSubscriptionResults(eid)
+                if cached:
+                    count = cached.get(traci_module.constants.LAST_STEP_VEHICLE_NUMBER, 0)
+                    speed = cached.get(traci_module.constants.LAST_STEP_MEAN_SPEED, 0.0)
+                else:
+                    count = traci_module.edge.getLastStepVehicleNumber(eid)
+                    speed = traci_module.edge.getLastStepMeanSpeed(eid)
                 pressure += count * max(0.5, 1.0 - speed / 13.89)
             if pressure > best_pressure:
                 best_pressure = pressure

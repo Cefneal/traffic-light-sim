@@ -4,13 +4,30 @@ import os
 import subprocess
 import threading
 import time
+from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from app.engine.tl_algorithms import AlgorithmFn, get_controller
 from app.engine.traci_client import TraCIClient
 from app.metrics.collector import MetricsCollector
 from app.models.traffic_light import TLPhase, TrafficLight
+from app.models.vehicle import Vehicle
 from app.utils.logger import get_logger
+
+
+@dataclass
+class StepSnapshot:
+    time: float = 0.0
+    vehicles: tuple = ()
+    tl_states: dict = field(default_factory=dict)
+    edge_data: dict = field(default_factory=dict)
+    vehicle_count: int = 0
+    remaining_vehicles: int = 0
+    avg_speed: float = 0.0
+    avg_wait: float = 0.0
+    queue: int = 0
+    fuel: float = 0.0
+    co2: float = 0.0
 
 
 class SimController:
@@ -31,6 +48,9 @@ class SimController:
         self._traffic_lights: dict[str, TrafficLight] = {}
 
         self.collector = MetricsCollector(max_samples=7200)
+
+        self._step_snapshot = StepSnapshot()
+        self._step_lock = threading.Lock()
 
         self._listeners: dict[str, list[Callable]] = {
             "step": [],
@@ -80,6 +100,10 @@ class SimController:
         if config:
             self._algorithm_config = config
         self.logger.info(f"Algorithm set to {name} with {config}")
+
+    def get_step_snapshot(self) -> StepSnapshot:
+        with self._step_lock:
+            return self._step_snapshot
 
     # ── Traffic light building ────────────────────────────────
 
@@ -184,18 +208,25 @@ class SimController:
 
         while self._running:
             if not self._paused:
+                step_start = time.perf_counter()
                 try:
-                    # Subscribe to current vehicles (only new ones each step)
-                    try:
-                        veh_ids = self.traci.get_vehicle_ids()
-                        self.traci.subscribe_vehicles(veh_ids)
-                    except Exception:
-                        pass
-
                     self.traci.simulation_step()
                     self.current_time = self.traci.get_simulation_time()
 
-                    # ── Metrics collection (cached reads) ──────
+                    try:
+                        veh_ids = self.traci.get_vehicle_ids()
+                    except Exception:
+                        veh_ids = []
+                    try:
+                        self.traci.subscribe_vehicles(veh_ids)
+                    except Exception:
+                        pass
+                    try:
+                        self.traci.cleanup_subscribed_vehicles(veh_ids)
+                    except Exception:
+                        pass
+
+                    # ── Metrics & TL state (cached reads) ──────
                     vehs = self.traci.get_all_vehicles_cached()
                     if not vehs:
                         vehs = self.traci.get_all_vehicles()
@@ -204,7 +235,6 @@ class SimController:
                     avg_wait = sum(v.waiting_time for v in vehs) / len(vehs) if vehs else 0.0
                     queue = sum(1 for v in vehs if v.speed < 0.1) if vehs else 0
 
-                    # Fuel & CO₂
                     total_fuel = self.traci.get_total_fuel_consumption()
                     total_co2 = self.traci.get_total_co2_emission()
 
@@ -225,6 +255,32 @@ class SimController:
                         except Exception as e:
                             self.logger.warning(f"TL algo {tl.id}: {e}")
 
+                    # ── Build shared snapshot for GUI thread ───
+                    tl_states: dict[str, str] = {}
+                    for tid in self._traffic_lights:
+                        state = self.traci.get_cached_tl_state(tid)
+                        if state:
+                            tl_states[tid] = state
+
+                    edge_data = self.traci.get_all_edge_data_cached()
+
+                    remaining = self.traci.get_remaining_vehicles()
+                    snapshot = StepSnapshot(
+                        time=self.current_time,
+                        vehicles=tuple(vehs),
+                        tl_states=tl_states,
+                        edge_data=edge_data,
+                        vehicle_count=len(vehs),
+                        remaining_vehicles=remaining,
+                        avg_speed=avg_speed,
+                        avg_wait=avg_wait,
+                        queue=queue,
+                        fuel=total_fuel,
+                        co2=total_co2,
+                    )
+                    with self._step_lock:
+                        self._step_snapshot = snapshot
+
                     # ── Emit step ───────────────────────────────
                     self._emit("step", {
                         "time": self.current_time,
@@ -242,8 +298,9 @@ class SimController:
                     self.stop()
                     break
 
-                sleep_time = 1.0 / (target_fps * self.sim_speed)
-                time.sleep(max(0.001, sleep_time))
+                elapsed = time.perf_counter() - step_start
+                target_interval = 1.0 / (target_fps * self.sim_speed)
+                time.sleep(max(0.001, target_interval - elapsed))
             else:
                 time.sleep(0.1)
 
@@ -251,12 +308,13 @@ class SimController:
         if not self._running:
             return
         import traci
+        step_length = float(self.config.get("simulation", "step_length") or 1.0)
         try:
             self.traci.simulation_step()
             self.current_time = self.traci.get_simulation_time()
             for tl in self._traffic_lights.values():
                 try:
-                    self._algorithm_fn(tl, traci, self.current_time)
+                    self._algorithm_fn(tl, traci, self.current_time, step_length)
                 except Exception as e:
                     self.logger.warning(f"TL algo {tl.id}: {e}")
             self._emit("step", {"time": self.current_time})

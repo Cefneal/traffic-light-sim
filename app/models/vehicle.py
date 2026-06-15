@@ -39,6 +39,8 @@ class Vehicle:
     lane_index: int = 0
     lane_position: float = 0.0
     waiting_time: float = 0.0
+    fuel: float = 0.0
+    co2: float = 0.0
     route: list[str] = field(default_factory=list)
     color: tuple[int, int, int] = (52, 152, 219)
 
