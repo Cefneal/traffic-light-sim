@@ -13,7 +13,7 @@ echo "[1/4] Checking Python..."
 PYTHON=""
 for cmd in python3 python; do
     if command -v "$cmd" &>/dev/null; then
-        PY_VER=$("$cmd" --version 2>&1 | sed -n 's/.*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+        PY_VER=$("$cmd" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
         MAJOR=$(echo "$PY_VER" | cut -d. -f1)
         MINOR=$(echo "$PY_VER" | cut -d. -f2)
         if [ "$MAJOR" -ge 3 ] && [ "$MINOR" -ge 10 ] 2>/dev/null; then
