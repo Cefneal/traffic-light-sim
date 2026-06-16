@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# setup.sh — Auto-install dependencies + verify environment (Linux / macOS)
+# setup.sh — Auto-install dependencies + verify environment (Linux / macOS / WSL)
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
+OS="$(uname -s)"
 echo "=== TLS — Traffic Light Simulation Setup ==="
+echo "  OS: $OS"
 echo ""
 
 # ── Python check ──────────────────────────────────────────────
@@ -24,17 +26,18 @@ for cmd in python3 python; do
 done
 
 if [ -z "$PYTHON" ]; then
-    echo "ERROR: Python 3.10+ not found. Install it first."
-    echo "  Ubuntu/Debian: sudo apt install python3 python3-pip python3-venv"
-    echo "  macOS: brew install python"
-    echo "  Windows: https://www.python.org/downloads/"
+    echo "ERROR: Python 3.10+ not found."
+    echo "  Arch:        sudo pacman -S python python-pip python-virtualenv"
+    echo "  Ubuntu/Deb:  sudo apt install python3 python3-pip python3-venv"
+    echo "  macOS:       brew install python"
+    echo "  Windows:     https://www.python.org/downloads/"
     exit 1
 fi
 PY_FULL=$($PYTHON --version 2>&1)
 echo "  Found: $PY_FULL"
-if echo "$PY_FULL" | grep -q "3\.14"; then
-    echo "  WARNING: Python 3.14 may lack wheels for some packages." >&2
-    echo "  Consider Python 3.10-3.13 if installs fail." >&2
+PY_MINOR=$(echo "$PY_FULL" | sed 's/.* \([0-9]*\)\.\([0-9]*\)\..*/\2/')
+if [ "$PY_MINOR" -ge 14 ] 2>/dev/null; then
+    echo "  WARNING: Python 3.14+ may lack PyQt wheels. Install Python 3.12 if installs fail." >&2
 fi
 
 # ── Virtual environment ───────────────────────────────────────
@@ -46,15 +49,15 @@ else
     echo "  venv/ already exists"
 fi
 
+# shellcheck disable=SC1091
 source venv/bin/activate
 
 # ── Install Python deps ───────────────────────────────────────
 echo "[3/4] Installing Python dependencies..."
 pip install --upgrade pip -q 2>/dev/null || true
 
-# Core deps — PyQt6 requires macOS 13+, fall back to PyQt5 on older macOS
 MACOS_VER=""
-if [[ "$(uname)" == "Darwin" ]]; then
+if [ "$OS" = "Darwin" ]; then
     MACOS_VER=$(sw_vers -productVersion 2>/dev/null | cut -d. -f1)
 fi
 
@@ -64,7 +67,7 @@ if [ -n "$MACOS_VER" ] && [ "$MACOS_VER" -lt 13 ] 2>/dev/null; then
     if pip install "PyQt5>=5.15" -q 2>/dev/null; then
         echo "  Installed PyQt5 (GUI framework)"
     else
-        echo "ERROR: PyQt5 installation failed."
+        echo "ERROR: PyQt5 installation failed. Try: pip install PyQt5 --only-binary :all:"
         exit 1
     fi
 elif pip install "PyQt6>=6.5" -q 2>/dev/null; then
@@ -73,13 +76,14 @@ elif pip install "PyQt5>=5.15" -q 2>/dev/null; then
     echo "  Installed PyQt5 (GUI framework)"
 else
     echo "ERROR: Could not install PyQt5 or PyQt6."
-    echo "  Try: pip install PyQt5 pyqtgraph traci --only-binary :all:"
+    echo "  Arch:        sudo pacman -S python-pyqt5 python-pyqtgraph"
+    echo "  Ubuntu/Deb:  sudo apt install python3-pyqt5 python3-pyqtgraph"
+    echo "  macOS:       brew install pyqt5"
     exit 1
 fi
 pip install pyqtgraph traci -q 2>/dev/null
 set -e
 
-# WeasyPrint (optional)
 pip install weasyprint -q 2>/dev/null || echo "  INFO: weasyprint skipped (optional, PDF export)"
 
 echo "  Done."
@@ -87,43 +91,71 @@ echo "  Done."
 # ── Check SUMO ────────────────────────────────────────────────
 echo "[4/4] Checking SUMO..."
 SUMO_BIN=""
-for candidate in sumo /usr/bin/sumo /usr/local/bin/sumo /opt/homebrew/bin/sumo; do
-    if command -v "$candidate" &>/dev/null; then
-        SUMO_BIN="$candidate"
-        break
-    fi
-done
 
-if [ -n "$SUMO_BIN" ]; then
-    SUMO_VER=$("$SUMO_BIN" --version 2>&1 | head -1)
-    echo "  Found: $SUMO_VER"
-else
-    # Check pip-installed eclipse-sumo
-    if python3 -c "import eclipse_sumo; print(eclipse_sumo.__file__)" 2>/dev/null; then
-        ESM=$(python3 -c "import eclipse_sumo; import os; print(os.path.dirname(eclipse_sumo.__file__))" 2>/dev/null)
-        if [ -x "$ESM/bin/sumo" ]; then
-            SUMO_BIN="$ESM/bin/sumo"
-            echo "  Found (pip): $($SUMO_BIN --version 2>&1 | head -1)"
-        else
-            echo "  WARNING: eclipse-sumo installed via pip but binary not found at $ESM/bin/sumo" >&2
-        fi
-    else
-        echo "  SUMO not found. Attempting install..."
-        if command -v apt &>/dev/null; then
-            sudo apt install sumo sumo-tools -y
-            SUMO_BIN="$(command -v sumo || true)"
-        elif command -v brew &>/dev/null; then
-            brew install sumo
-            SUMO_BIN="$(command -v sumo || true)"
-        fi
-        if [ -n "$SUMO_BIN" ]; then
-            echo "  Installed: $($SUMO_BIN --version 2>&1 | head -1)"
-        else
-            echo "  WARNING: SUMO not found. Try: pip install eclipse-sumo"
-            echo "    Or download from: https://sumo.dlr.de/docs/Downloads.php"
-        fi
+# 1. Check PATH
+if command -v sumo &>/dev/null; then
+    SUMO_BIN="$(command -v sumo)"
+fi
+
+# 2. Check pip-installed eclipse-sumo (imports as `sumo`, not `eclipse_sumo`)
+if [ -z "$SUMO_BIN" ]; then
+    SUMO_DIR=$(python3 -c "import sumo; import os; print(os.path.dirname(sumo.__file__))" 2>/dev/null || true)
+    if [ -n "$SUMO_DIR" ] && [ -x "$SUMO_DIR/bin/sumo" ]; then
+        SUMO_BIN="$SUMO_DIR/bin/sumo"
+        export SUMO_HOME="$SUMO_DIR"
+        echo "  Found (pip eclipse-sumo): $("$SUMO_BIN" --version 2>&1 | head -1)"
     fi
 fi
+
+# 3. Try to install if missing
+if [ -z "$SUMO_BIN" ]; then
+    echo "  SUMO not found. Attempting install..."
+
+    if command -v pacman &>/dev/null; then
+        # Arch Linux
+        if sudo pacman -S --noconfirm sumo sumo-tools 2>/dev/null; then
+            SUMO_BIN="$(command -v sumo || true)"
+        fi
+    elif command -v apt &>/dev/null; then
+        # Debian / Ubuntu
+        sudo apt install sumo sumo-tools -y 2>/dev/null
+        SUMO_BIN="$(command -v sumo || true)"
+    fi
+
+    # Fallback: pip install eclipse-sumo (all platforms)
+    if [ -z "$SUMO_BIN" ]; then
+        if [ "$OS" = "Darwin" ]; then
+            echo "  macOS: installing brew dependencies for eclipse-sumo..."
+            brew install xerces-c proj gdal 2>/dev/null || true
+        fi
+        echo "  Installing eclipse-sumo via pip (includes SUMO binaries)..."
+        pip install eclipse-sumo -q 2>/dev/null || true
+        SUMO_DIR=$(python3 -c "import sumo; import os; print(os.path.dirname(sumo.__file__))" 2>/dev/null || true)
+        if [ -n "$SUMO_DIR" ] && [ -x "$SUMO_DIR/bin/sumo" ]; then
+            SUMO_BIN="$SUMO_DIR/bin/sumo"
+            export SUMO_HOME="$SUMO_DIR"
+        fi
+    fi
+
+    if [ -n "$SUMO_BIN" ]; then
+        echo "  Installed: $("$SUMO_BIN" --version 2>&1 | head -1)"
+    else
+        echo "  WARNING: SUMO installation failed."
+        echo "    Arch:        sudo pacman -S sumo sumo-tools"
+        echo "    Ubuntu/Deb:  sudo apt install sumo sumo-tools"
+        echo "    macOS:       brew install xerces-c proj gdal && pip install eclipse-sumo"
+        echo "    Windows:     pip install eclipse-sumo"
+        echo "    Or download: https://sumo.dlr.de/docs/Downloads.php"
+    fi
+fi
+
+# ── Set SUMO_HOME if found but not set ─────────────────────────
+if [ -n "$SUMO_BIN" ] && [ -z "${SUMO_HOME:-}" ]; then
+    # Derive SUMO_HOME from binary path (bin/sumo -> parent dir)
+    SUMO_HOME="$(cd "$(dirname "$SUMO_BIN")/.." && pwd)"
+    export SUMO_HOME
+fi
+echo "  SUMO_HOME=${SUMO_HOME:-}"
 
 # ── Optional: Build ──────────────────────────────────────────
 if [ "${1:-}" = "--build" ]; then
@@ -135,6 +167,6 @@ fi
 
 echo ""
 echo "=== Setup complete! ==="
-echo "Run: python -m app.main"
-echo "Or:  source venv/bin/activate && python -m app.main"
-echo "Build standalone: bash setup.sh --build"
+echo "Run:  source venv/bin/activate && python -m app.main"
+echo "Fish: source venv/bin/activate.fish && python -m app.main"
+echo "Build: bash setup.sh --build"
