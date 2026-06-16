@@ -1,6 +1,7 @@
-PyQt6>=6.5
+PyQt6>=6.5; python_version >= '3.13' and sys_platform != 'darwin'
+PyQt5>=5.15; python_version < '3.13' or sys_platform == 'darwin'
 pyqtgraph>=0.13
-traci
+traci>=1.22
 weasyprint>=60
 
 # Optional — for building standalone executable:

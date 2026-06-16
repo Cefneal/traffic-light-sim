@@ -1,5 +1,7 @@
 import os
 import json
+import sys
+import shutil
 from pathlib import Path
 
 
@@ -94,41 +96,47 @@ class Config:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, indent=2)
 
-    def get_sumo_binary(self) -> str:
+    def _bundled_bin_dir(self) -> Path | None:
+        try:
+            platform_dir = {"linux": "linux", "linux2": "linux", "darwin": "macos", "win32": "windows"}.get(sys.platform)
+            if platform_dir:
+                d = Path(__file__).resolve().parent.parent.parent / "sumo_bin" / platform_dir
+                if d.exists():
+                    return d
+        except Exception:
+            pass
+        return None
+
+    def _find_binary(self, names: list[str]) -> str | None:
+        for name in names:
+            which = shutil.which(name)
+            if which:
+                return os.path.abspath(which)
+        bundled = self._bundled_bin_dir()
+        if bundled:
+            for name in names:
+                p = bundled / name
+                if p.exists():
+                    return str(p.resolve())
+        sumo_home = os.environ.get("SUMO_HOME", "")
+        if sumo_home:
+            for name in names:
+                p = os.path.join(sumo_home, "bin", name)
+                if os.path.exists(p):
+                    return os.path.abspath(p)
+        return None
+
+    def get_sumo_binary(self) -> str | None:
         path = self.get("sumo", "binary_path")
         if path and os.path.exists(path):
             return os.path.abspath(path)
-        import shutil
-        which = shutil.which("sumo") or shutil.which("sumo.exe")
-        if which:
-            return os.path.abspath(which)
-        sumo_home = os.environ.get("SUMO_HOME", "")
-        if sumo_home:
-            p = os.path.join(sumo_home, "bin", "sumo.exe")
-            if os.path.exists(p):
-                return os.path.abspath(p)
-            p = os.path.join(sumo_home, "bin", "sumo")
-            if os.path.exists(p):
-                return os.path.abspath(p)
-        return "sumo"
+        return self._find_binary(["sumo", "sumo.exe"])
 
-    def get_netconvert_binary(self) -> str:
+    def get_netconvert_binary(self) -> str | None:
         path = self.get("sumo", "netconvert_path")
         if path and os.path.exists(path):
             return os.path.abspath(path)
-        import shutil
-        which = shutil.which("netconvert") or shutil.which("netconvert.exe")
-        if which:
-            return os.path.abspath(which)
-        sumo_home = os.environ.get("SUMO_HOME", "")
-        if sumo_home:
-            p = os.path.join(sumo_home, "bin", "netconvert.exe")
-            if os.path.exists(p):
-                return os.path.abspath(p)
-            p = os.path.join(sumo_home, "bin", "netconvert")
-            if os.path.exists(p):
-                return os.path.abspath(p)
-        return "netconvert"
+        return self._find_binary(["netconvert", "netconvert.exe"])
 
     def get_db_path(self) -> str:
         path = self.get("storage", "database_path")

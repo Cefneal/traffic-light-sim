@@ -159,9 +159,16 @@ class SimController:
             self.logger.warning("Simulation already running")
             return
 
+        if not sumo_cfg_path or not os.path.exists(sumo_cfg_path):
+            self.logger.error(f"Config file not found: {sumo_cfg_path}")
+            self._emit("error", f"Config file not found: {sumo_cfg_path}")
+            return
+
         sumo_bin = self.config.get_sumo_binary()
-        if not os.path.exists(sumo_cfg_path):
-            raise FileNotFoundError(f"SUMO config not found: {sumo_cfg_path}")
+        if not sumo_bin:
+            self.logger.error("SUMO binary not found. Install SUMO or set TLS_SUMO_PATH")
+            self._emit("error", "SUMO binary not found. Install SUMO or set TLS_SUMO_PATH")
+            return
 
         cmd = [
             sumo_bin,
@@ -173,8 +180,17 @@ class SimController:
 
         try:
             self.sumo_process = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
+            time.sleep(1.5)
+            if self.sumo_process.poll() is not None:
+                _, stderr = self.sumo_process.communicate()
+                error_msg = stderr.decode().strip() if stderr else "Unknown error"
+                self.logger.error(f"SUMO failed to start:\n{error_msg}")
+                self._emit("error", f"SUMO failed to start:\n{error_msg}")
+                self.sumo_process = None
+                return
+
             self.traci.connect(port=port)
             self._running = True
             self._paused = False
@@ -183,7 +199,6 @@ class SimController:
 
             self._build_traffic_lights()
 
-            # Subscribe to all edges once — persists across steps
             try:
                 all_edge_ids = self.traci.get_edge_ids()
                 self.traci.subscribe_edges(all_edge_ids)

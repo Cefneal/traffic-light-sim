@@ -97,17 +97,33 @@ if command -v sumo &>/dev/null; then
     SUMO_BIN="$(command -v sumo)"
 fi
 
-# 2. Check pip-installed eclipse-sumo (imports as `sumo`, not `eclipse_sumo`)
+# 2. Check common install locations
+if [ -z "$SUMO_BIN" ]; then
+    # macOS: built from source / Applications
+    if [ "$OS" = "Darwin" ]; then
+        for p in /Applications/SUMO/bin/sumo /usr/local/bin/sumo; do
+            if [ -x "$p" ]; then
+                SUMO_BIN="$p"
+                SUMO_HOME="$(cd "$(dirname "$p")/.." && pwd)"
+                export SUMO_HOME
+                break
+            fi
+        done
+    fi
+fi
+
+# 3. Check pip-installed eclipse-sumo (imports as `sumo`, not `eclipse_sumo`)
 if [ -z "$SUMO_BIN" ]; then
     SUMO_DIR=$(python3 -c "import sumo; import os; print(os.path.dirname(sumo.__file__))" 2>/dev/null || true)
     if [ -n "$SUMO_DIR" ] && [ -x "$SUMO_DIR/bin/sumo" ]; then
         SUMO_BIN="$SUMO_DIR/bin/sumo"
-        export SUMO_HOME="$SUMO_DIR"
+        SUMO_HOME="$SUMO_DIR"
+        export SUMO_HOME
         echo "  Found (pip eclipse-sumo): $("$SUMO_BIN" --version 2>&1 | head -1)"
     fi
 fi
 
-# 3. Try to install if missing
+# 4. Try to install if missing
 if [ -z "$SUMO_BIN" ]; then
     echo "  SUMO not found. Attempting install..."
 
@@ -124,16 +140,13 @@ if [ -z "$SUMO_BIN" ]; then
 
     # Fallback: pip install eclipse-sumo (all platforms)
     if [ -z "$SUMO_BIN" ]; then
-        if [ "$OS" = "Darwin" ]; then
-            echo "  macOS: installing brew dependencies for eclipse-sumo..."
-            brew install xerces-c proj gdal 2>/dev/null || true
-        fi
         echo "  Installing eclipse-sumo via pip (includes SUMO binaries)..."
         pip install eclipse-sumo -q 2>/dev/null || true
         SUMO_DIR=$(python3 -c "import sumo; import os; print(os.path.dirname(sumo.__file__))" 2>/dev/null || true)
         if [ -n "$SUMO_DIR" ] && [ -x "$SUMO_DIR/bin/sumo" ]; then
             SUMO_BIN="$SUMO_DIR/bin/sumo"
-            export SUMO_HOME="$SUMO_DIR"
+            SUMO_HOME="$SUMO_DIR"
+            export SUMO_HOME
         fi
     fi
 
@@ -143,8 +156,8 @@ if [ -z "$SUMO_BIN" ]; then
         echo "  WARNING: SUMO installation failed."
         echo "    Arch:        sudo pacman -S sumo sumo-tools"
         echo "    Ubuntu/Deb:  sudo apt install sumo sumo-tools"
-        echo "    macOS:       brew install xerces-c proj gdal && pip install eclipse-sumo"
-        echo "    Windows:     pip install eclipse-sumo"
+        echo "    macOS:       brew tap dlr-ts/sumo && brew install sumo  OR  download from https://sumo.dlr.de"
+        echo "    Windows:     pip install eclipse-sumo  OR  download from https://sumo.dlr.de"
         echo "    Or download: https://sumo.dlr.de/docs/Downloads.php"
     fi
 fi

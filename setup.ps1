@@ -48,8 +48,12 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "  WARNING: pip upgrade failed, continuing..." -ForegroundColor Yellow
 }
 
-# Core deps
+# Core deps - try PyQt6 first, fallback to PyQt5
 & $venvPython -m pip install PyQt6 pyqtgraph traci -q
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  PyQt6 failed, trying PyQt5..." -ForegroundColor Yellow
+    & $venvPython -m pip install PyQt5 pyqtgraph traci -q
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ERROR: Core dependencies failed to install." -ForegroundColor Red
     Write-Host "  Try: pip install PyQt6 pyqtgraph traci"

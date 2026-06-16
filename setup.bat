@@ -48,7 +48,11 @@ if !errorlevel! neq 0 (
     echo   WARNING: pip upgrade failed, continuing...
 )
 
-pip install PyQt6 pyqtgraph traci -q
+pip install PyQt6 pyqtgraph traci -q 2>nul
+if !errorlevel! neq 0 (
+    echo   PyQt6 failed, trying PyQt5...
+    pip install PyQt5 pyqtgraph traci -q
+)
 if !errorlevel! neq 0 (
     echo   ERROR: Core dependencies failed to install.
     echo   Try: pip install PyQt6 pyqtgraph traci
