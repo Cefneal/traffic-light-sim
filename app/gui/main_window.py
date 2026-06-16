@@ -116,15 +116,18 @@ class MainWindow(QMainWindow):
     def _on_step_data(self, data: dict):
         if not data or "time" not in data:
             return
-        self.dashboard.add_data_point(
-            sim_time=data["time"],
-            speed=data.get("avg_speed", 0),
-            wait=data.get("avg_wait", 0),
-            throughput=data.get("vehicles", 0),
-            queue=data.get("queue", 0),
-            fuel=data.get("fuel", 0),
-            co2=data.get("co2", 0),
-        )
+        try:
+            self.dashboard.add_data_point(
+                sim_time=data["time"],
+                speed=data.get("avg_speed", 0),
+                wait=data.get("avg_wait", 0),
+                throughput=data.get("vehicles", 0),
+                queue=data.get("queue", 0),
+                fuel=data.get("fuel", 0),
+                co2=data.get("co2", 0),
+            )
+        except RuntimeError:
+            pass
 
     # ── Map Style ────────────────────────────────────────────
 
@@ -220,6 +223,14 @@ class MainWindow(QMainWindow):
         dialog = ScenarioDialog(self, mode="save")
         if dialog.exec():
             self.set_status("Scenario saved")
+
+    def closeEvent(self, event):
+        if self.sim_controller:
+            self.sim_controller.stop()
+        self.map_viewer.cleanup()
+        self.controls.cleanup()
+        self.dashboard.cleanup()
+        event.accept()
 
     def _on_about(self):
         QMessageBox.about(

@@ -187,10 +187,21 @@ class ControlsToolbar(QToolBar):
             self.sim_controller.set_speed(speed)
 
     def _update_status(self):
+        if not self.sim_controller or not hasattr(self, 'sim_controller'):
+            return
         if self.sim_controller and self.sim_controller.is_running:
-            snapshot = self.sim_controller.get_step_snapshot()
-            t = snapshot.time
-            remaining = snapshot.remaining_vehicles
-            self.status_label.setText(
-                f"Time: {t:.0f}s | Vehicles: {remaining} | Speed: {self.speed_label.text()}"
-            )
+            try:
+                snapshot = self.sim_controller.get_step_snapshot()
+                t = snapshot.time
+                remaining = snapshot.remaining_vehicles
+                self.status_label.setText(
+                    f"Time: {t:.0f}s | Vehicles: {remaining} | Speed: {self.speed_label.text()}"
+                )
+            except RuntimeError:
+                pass
+        else:
+            self.status_label.setText("Time: 0s | Vehicles: 0")
+
+    def cleanup(self):
+        self._timer.stop()
+        self.sim_controller = None

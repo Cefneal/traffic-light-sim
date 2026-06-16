@@ -131,6 +131,7 @@ class MapViewer(QGraphicsView):
         self._timer.setInterval(33)
         self._timer.timeout.connect(self._update_view)
         self._timer.start()
+        self._cleaned_up = False
 
     def set_sim_controller(self, controller):
         self.sim_controller = controller
@@ -269,6 +270,11 @@ class MapViewer(QGraphicsView):
             self._attribution.setText(attr)
             self._attribution.setVisible(True)
 
+    def cleanup(self):
+        self._cleaned_up = True
+        self._timer.stop()
+        self.sim_controller = None
+
     def _safe_remove_item(self, item):
         try:
             if item is not None and item.scene() is self.scene_obj:
@@ -391,6 +397,8 @@ class MapViewer(QGraphicsView):
                 pass
 
     def _update_view(self):
+        if self._cleaned_up:
+            return
         t0 = time.perf_counter()
 
         if not self.sim_controller or not self.sim_controller.is_running:

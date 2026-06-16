@@ -103,13 +103,20 @@ class DashboardPanel(QWidget):
     def _update_charts(self):
         if not self._data["time"]:
             return
-        t = self._data["time"]
-        self.speed_curve.setData(t, self._data["speed"])
-        self.wait_curve.setData(t, self._data["wait_time"])
-        self.throughput_curve.setData(t, self._data["throughput"])
-        self.queue_curve.setData(t, self._data["queue"])
-        self.fuel_curve.setData(t, self._data["fuel"])
-        self.co2_curve.setData(t, self._data["co2"])
+        try:
+            t = self._data["time"]
+            self.speed_curve.setData(t, self._data["speed"])
+            self.wait_curve.setData(t, self._data["wait_time"])
+            self.throughput_curve.setData(t, self._data["throughput"])
+            self.queue_curve.setData(t, self._data["queue"])
+            self.fuel_curve.setData(t, self._data["fuel"])
+            self.co2_curve.setData(t, self._data["co2"])
+        except RuntimeError:
+            pass
+
+    def cleanup(self):
+        self._timer.stop()
+        self.sim_controller = None
 
     def _on_sim_stop(self):
         if self._data["time"]:
