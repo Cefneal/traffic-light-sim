@@ -97,37 +97,37 @@ class Config:
     def get_sumo_binary(self) -> str:
         path = self.get("sumo", "binary_path")
         if path and os.path.exists(path):
-            return path
+            return os.path.abspath(path)
         import shutil
         which = shutil.which("sumo") or shutil.which("sumo.exe")
         if which:
-            return which
+            return os.path.abspath(which)
         sumo_home = os.environ.get("SUMO_HOME", "")
         if sumo_home:
             p = os.path.join(sumo_home, "bin", "sumo.exe")
             if os.path.exists(p):
-                return p
+                return os.path.abspath(p)
             p = os.path.join(sumo_home, "bin", "sumo")
             if os.path.exists(p):
-                return p
+                return os.path.abspath(p)
         return "sumo"
 
     def get_netconvert_binary(self) -> str:
         path = self.get("sumo", "netconvert_path")
         if path and os.path.exists(path):
-            return path
+            return os.path.abspath(path)
         import shutil
         which = shutil.which("netconvert") or shutil.which("netconvert.exe")
         if which:
-            return which
+            return os.path.abspath(which)
         sumo_home = os.environ.get("SUMO_HOME", "")
         if sumo_home:
             p = os.path.join(sumo_home, "bin", "netconvert.exe")
             if os.path.exists(p):
-                return p
+                return os.path.abspath(p)
             p = os.path.join(sumo_home, "bin", "netconvert")
             if os.path.exists(p):
-                return p
+                return os.path.abspath(p)
         return "netconvert"
 
     def get_db_path(self) -> str:
