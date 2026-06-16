@@ -52,12 +52,25 @@ source venv/bin/activate
 echo "[3/4] Installing Python dependencies..."
 pip install --upgrade pip -q 2>/dev/null || true
 
-# Core deps — try PyQt6 first, fall back to PyQt5
+# Core deps — PyQt6 requires macOS 13+, fall back to PyQt5 on older macOS
+MACOS_VER=""
+if [[ "$(uname)" == "Darwin" ]]; then
+    MACOS_VER=$(sw_vers -productVersion 2>/dev/null | cut -d. -f1)
+fi
+
 set +e
-if pip install "PyQt6>=6.5" -q 2>/dev/null; then
+if [ -n "$MACOS_VER" ] && [ "$MACOS_VER" -lt 13 ] 2>/dev/null; then
+    echo "  macOS $MACOS_VER detected — PyQt6 requires macOS 13+, using PyQt5"
+    if pip install "PyQt5>=5.15" -q 2>/dev/null; then
+        echo "  Installed PyQt5 (GUI framework)"
+    else
+        echo "ERROR: PyQt5 installation failed."
+        exit 1
+    fi
+elif pip install "PyQt6>=6.5" -q 2>/dev/null; then
     echo "  Installed PyQt6 (GUI framework)"
 elif pip install "PyQt5>=5.15" -q 2>/dev/null; then
-    echo "  Installed PyQt5 (GUI framework, macOS <13 fallback)"
+    echo "  Installed PyQt5 (GUI framework)"
 else
     echo "ERROR: Could not install PyQt5 or PyQt6."
     echo "  Try: pip install PyQt5 pyqtgraph traci --only-binary :all:"
