@@ -1,9 +1,8 @@
-from PyQt6.QtWidgets import (
+from app.utils.qt_compat import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QMenuBar, QStatusBar, QMessageBox, QFileDialog,
+    Qt, pyqtSignal, QObject, QAction,
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QObject
-from PyQt6.QtGui import QAction
 
 from app.gui.map_viewer import MapViewer
 from app.gui.dashboard import DashboardPanel

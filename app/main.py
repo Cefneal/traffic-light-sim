@@ -12,7 +12,7 @@ def main():
     logger.info(f"Starting {config.get('app', 'name')} v{config.get('app', 'version')}")
 
     try:
-        from PyQt6.QtWidgets import QApplication
+        from app.utils.qt_compat import QApplication, QIcon
         from app.gui.main_window import MainWindow
         from app.engine.sim_controller import SimController
 
@@ -21,15 +21,14 @@ def main():
         window = MainWindow(config)
         icon_path = Path(__file__).resolve().parent.parent / "resources" / "icon.png"
         if icon_path.exists():
-            from PyQt6.QtGui import QIcon
             window.setWindowIcon(QIcon(str(icon_path)))
         window.set_sim_controller(sim)
         window.show()
         sys.exit(app.exec())
     except ImportError:
-        logger.warning("PyQt6 not available, running in headless mode")
+        logger.warning("PyQt not available, running in headless mode")
         print(f"{config.get('app', 'name')} v{config.get('app', 'version')}")
-        print("GUI requires PyQt6 - install with: pip install PyQt6")
+        print("GUI requires PyQt5 or PyQt6 - install with: pip install PyQt5 PyQt5-sip")
 
 
 if __name__ == "__main__":

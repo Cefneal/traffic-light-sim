@@ -2,13 +2,11 @@ import json
 import os
 from pathlib import Path
 
-from PyQt6.QtWidgets import (
+from app.utils.qt_compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QTextEdit, QPushButton, QListWidget, QFileDialog, QMessageBox,
-    QComboBox, QFormLayout,
+    QComboBox, QFormLayout, Qt, QFont,
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
 
 
 SCENARIO_DIR = Path.home() / ".tls" / "scenarios"

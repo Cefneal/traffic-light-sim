@@ -7,8 +7,7 @@ import urllib.error
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QPointF, QRectF
-from PyQt6.QtGui import QPixmap
+from app.utils.qt_compat import QPointF, QRectF, QPixmap
 
 from app.utils.logger import get_logger
 

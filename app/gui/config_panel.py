@@ -1,10 +1,8 @@
-from PyQt6.QtWidgets import (
+from app.utils.qt_compat import (
     QWidget, QVBoxLayout, QGroupBox, QLabel, QComboBox,
     QSpinBox, QCheckBox, QPushButton, QFormLayout,
-    QScrollArea,
+    QScrollArea, Qt, pyqtSignal, QFont,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
 
 
 class ConfigPanel(QWidget):

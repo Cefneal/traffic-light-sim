@@ -2,9 +2,7 @@ import csv
 import json
 from pathlib import Path
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTabWidget
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QFont
+from app.utils.qt_compat import QWidget, QVBoxLayout, QLabel, QTabWidget, QTimer, QFont
 import pyqtgraph as pg
 
 from app.metrics.storage import MetricsStorage

@@ -9,12 +9,11 @@ import math
 import time
 from collections import deque
 
-from PyQt6.QtWidgets import (
+from app.utils.qt_compat import (
     QGraphicsView, QGraphicsScene, QGraphicsItem, QGraphicsLineItem, QLabel,
+    Qt, QRectF, QTimer, QPointF,
+    QPolygonF, QPen, QBrush, QColor, QPainter, QFont, QPixmap,
 )
-from PyQt6.QtCore import Qt, QRectF, QTimer, QPointF
-from PyQt6.QtGui import QPolygonF
-from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QFont, QPixmap
 
 from app.gui.tile_provider import TileProvider
 from app.utils.logger import get_logger

@@ -4,12 +4,11 @@ Settings Dialog
 Application preferences: language, theme, SUMO path, database path.
 """
 
-from PyQt6.QtWidgets import (
+from app.utils.qt_compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox,
+    Qt, QFont,
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
 
 from app.utils.localization import available_languages, t
 

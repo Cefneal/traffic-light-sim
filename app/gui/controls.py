@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
 
-from PyQt6.QtWidgets import (
+from app.utils.qt_compat import (
     QToolBar, QWidget, QHBoxLayout, QPushButton, QSlider, QLabel,
-    QComboBox, QFileDialog,
+    QComboBox, QFileDialog, Qt, QTimer,
 )
-from PyQt6.QtCore import Qt, QTimer
 
 
 SIM_DIR = Path(__file__).resolve().parent.parent.parent / "sim"
